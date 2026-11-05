@@ -8,3 +8,5 @@ Thunderpeak — a gamified National Park adventure app
 > "The more you sweat in training, the less you bleed in combat." - Godwin Bassey
 
 > "Without hard work, nothing grows but weeds" -Arlin Jones
+
+> "The mountains are calling, and I must go." — John Muir
