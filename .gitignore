@@ -151,3 +151,6 @@ vite.config.ts.timestamp-*
 #my-todo
 my-todo.md
 
+#rest client env file
+rest-client.env.json
+

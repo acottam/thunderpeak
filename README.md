@@ -1,4 +1,4 @@
--- Active: 1741675647403@@dpg-cv3jpaa3esus73djb7b0-a.frankfurt-postgres.render.com@5432
+frankfurt-postgres.render.com@5432
 # thunderpeak
 Thunderpeak — a gamified National Park adventure app
 
