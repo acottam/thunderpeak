@@ -1,3 +1,4 @@
+-- Active: 1741675647403@@dpg-cv3jpaa3esus73djb7b0-a.frankfurt-postgres.render.com@5432
 # thunderpeak
 Thunderpeak — a gamified National Park adventure app
 
@@ -86,6 +87,16 @@ npm run dev
 ```
 
 Check it works: open http://localhost:3000/health (API) and http://localhost:3000/health/db (database).
+
+To populate the park catalogue, set `NPS_API_KEY` in `api/.env`, then run:
+
+```bash
+cd api
+npm run import:parks
+```
+
+This imports National Parks and National Monuments from NPS into the existing `parks` table. The script maps NPS `fullName`, `description`, and `states` to the table's `name`, `description`, and `location` fields.
+
 
 ### 4. Run the mobile app
 
