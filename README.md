@@ -60,6 +60,8 @@ Install Docker Desktop from https://www.docker.com/products/docker-desktop, open
 docker compose up -d
 ```
 
+If port 5432 is already in use on your machine, see Troubleshooting below for how to use a different port.
+
 On Windows, Docker Desktop needs WSL 2 and virtualization enabled in BIOS.
 
 **Option B: Install PostgreSQL directly (no Docker)**
@@ -112,6 +114,6 @@ On a physical phone, the app reaches the API using your computer's local network
 | `npm install` fails or prints an engine or version error | Node is too old. Run `node -v`, then install Node 22.13 or newer (`nvm install` and `nvm use` read the `.nvmrc`). |
 | `/health/db` returns 503 | The database is not running or `DATABASE_URL` in `api/.env` is wrong. Start Docker or PostgreSQL and check the URL. `/health` can still return 200. |
 | `Cannot connect to the Docker daemon` | Docker Desktop is installed but not open. Start it and wait until it is running. |
-| `port 5432 is already allocated` | Another PostgreSQL is already running. Stop it, or use it (Option B) and skip Docker. |
+| `port 5432 is already allocated` or `address already in use` | Another PostgreSQL (or container) already uses port 5432. Either stop it, or run ours on a different port: create a `.env` file in the repo root with `POSTGRES_PORT=5433`, set `DATABASE_URL` in `api/.env` to use `localhost:5433`, then run `docker compose up -d` again. Or skip Docker and use Option B. |
 | Phone cannot reach the API | Use your computer's local network address instead of `localhost`, and keep both on the same Wi-Fi. |
 | `.env` is missing | Run `cp .env.example .env` inside `api/`. Never commit `.env`. |
