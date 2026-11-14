@@ -1,6 +1,5 @@
 # Thunderpeak: NPS Park Catalogue Data Requirements
 
-**Owner:** Godwin Obi Bassey\
 **Data provider:** National Park Service (NPS)\
 **API base URL:** `https://developer.nps.gov/api/v1`\
 **Primary endpoint:** `GET /parks`
