@@ -11,7 +11,9 @@ services:
       POSTGRES_PASSWORD: thunderpeak
       POSTGRES_DB: thunderpeak
     ports:
-      - "5433:5432"
+      # Host port is configurable. If 5432 is already in use on your machine,
+      # create a .env file next to this file with POSTGRES_PORT=5433 (see README).
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - thunderpeak-db-data:/var/lib/postgresql/data
     healthcheck:
