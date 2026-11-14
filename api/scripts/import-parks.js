@@ -11,7 +11,9 @@ const PAGE_SIZE = 500;
 // Keep only the two NPS designations used by the Thunderpeak catalogue.
 function isParkOrMonument(site) {
   const designation = (site.designation || '').trim().toLowerCase();
-  return designation.startsWith('national park') || designation.startsWith('national monument');
+  return designation.startsWith('national park')
+    || designation.startsWith('national historical park')
+    || designation.startsWith('national monument');
 }
 
 async function fetchParks(apiKey) {
