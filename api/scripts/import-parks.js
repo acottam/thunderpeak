@@ -1,19 +1,35 @@
 #!/usr/bin/env node
 
 const path = require('node:path');
+const { setTimeout: sleep } = require('node:timers/promises');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const pool = require('../src/db');
 
 const NPS_PARKS_URL = 'https://developer.nps.gov/api/v1/parks';
 const PAGE_SIZE = 500;
+const MAX_NPS_ATTEMPTS = 3;
+const NPS_RETRY_DELAY_MS = 1000;
 
 // Keep only the two NPS designations used by the Thunderpeak catalogue.
 function isParkOrMonument(site) {
   const designation = (site.designation || '').trim().toLowerCase();
   return designation.startsWith('national park')
-    || designation.startsWith('national historical park')
     || designation.startsWith('national monument');
+}
+
+async function requestNpsPage(url, apiKey) {
+  for (let attempt = 1; attempt <= MAX_NPS_ATTEMPTS; attempt += 1) {
+    const response = await fetch(url, {
+      headers: { 'X-Api-Key': apiKey },
+    });
+
+    if (response.status !== 503 || attempt === MAX_NPS_ATTEMPTS) return response;
+
+    console.warn(`NPS API returned 503; retrying in ${NPS_RETRY_DELAY_MS / 1000} seconds (${attempt}/${MAX_NPS_ATTEMPTS - 1}).`);
+    await response.body?.cancel();
+    await sleep(NPS_RETRY_DELAY_MS);
+  }
 }
 
 async function fetchParks(apiKey) {
@@ -26,9 +42,7 @@ async function fetchParks(apiKey) {
     url.searchParams.set('limit', String(PAGE_SIZE));
     url.searchParams.set('start', String(start));
 
-    const response = await fetch(url, {
-      headers: { 'X-Api-Key': apiKey },
-    });
+    const response = await requestNpsPage(url, apiKey);
 
     if (!response.ok) {
       throw new Error(`NPS API request failed with HTTP ${response.status}`);

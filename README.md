@@ -104,7 +104,7 @@ cd api
 npm run import:parks
 ```
 
-This imports National Parks, National Historical Parks, and National Monuments from NPS into the existing `parks` table. The script maps NPS `fullName`, `description`, and `states` to the table's `name`, `description`, and `location` fields.
+This imports National Parks and National Monuments from NPS into the existing `parks` table. The script maps NPS `fullName`, `description`, and `states` to the table's `name`, `description`, and `location` fields.
 
 ### 4. Run the mobile app
 
