@@ -148,7 +148,9 @@ The API runs on Render at https://thunderpeak-api.onrender.com (check `/health` 
 
 1. Start from the latest `main`: `git checkout main`, then `git pull`.
 2. Work on a branch named `yourname/short-description`, never directly on `main`.
-3. Write meaningful commit messages. Run the API and check `/health/db` before you open a pull request.
+3. Write meaningful commit messages. Before you open a pull request, run the checks for the part you changed:
+   - `api/`: `npm run lint` and `npm test`, then run the API and check `/health/db`
+   - `mobile/`: `npm run lint` and `npm run typecheck`
 4. Open a pull request with a short description of what changed and how you tested it.
 5. A teammate other than the author reviews it. Reviewers check that it runs, that nothing secret is committed and that the change matches the description.
 6. Merge with a regular merge commit so each author's commits stay in the history. Delete the branch afterward.
