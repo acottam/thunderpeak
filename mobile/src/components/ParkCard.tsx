@@ -1,13 +1,9 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { bannerColor, designationOf, formatStates, pointsFor } from '@/api/parks';
 import { PointsBadge } from '@/components/PointsBadge';
-import { pointsFor } from '@/data/sampleParks';
 import { colors, radius, spacing } from '@/theme';
 import type { Park } from '@/types/park';
-
-export function formatStates(location: string | null): string {
-  return location ? location.split(',').map((s) => s.trim()).join(' · ') : 'Location unknown';
-}
 
 export function ParkCard({ park }: { park: Park }) {
   return (
@@ -17,15 +13,19 @@ export function ParkCard({ park }: { park: Park }) {
       accessibilityRole="link"
       accessibilityLabel={`Open ${park.name}`}
     >
-      <View style={[styles.thumb, { backgroundColor: park.imageColor ?? colors.primary }]}>
-        <Text style={styles.thumbLetter}>{park.name.charAt(0)}</Text>
-      </View>
+      {park.image_url ? (
+        <Image source={{ uri: park.image_url }} style={styles.thumb} accessibilityIgnoresInvertColors />
+      ) : (
+        <View style={[styles.thumb, { backgroundColor: bannerColor(park) }]}>
+          <Text style={styles.thumbLetter}>{park.name.charAt(0)}</Text>
+        </View>
+      )}
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={2}>
           {park.name}
         </Text>
         <Text style={styles.meta}>
-          {park.designation ?? 'Park'} · {formatStates(park.location)}
+          {designationOf(park) ?? 'Park'} · {formatStates(park.location)}
         </Text>
         <PointsBadge points={pointsFor(park)} />
       </View>
