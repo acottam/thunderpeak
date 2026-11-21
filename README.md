@@ -137,6 +137,8 @@ On a physical phone, the app reaches the API using your computer's local network
 
 The API runs on Render at https://thunderpeak-api.onrender.com (check `/health` and `/health/db`).
 
+Endpoint reference with request and response examples: [docs/api.md](docs/api.md).
+
 - It uses Render's free plan and goes to sleep after 15 minutes without traffic. The first request afterward takes about a minute.
 - Every merge to `main` deploys automatically.
 - The team database is hosted on Render and is not open to outside connections. If you need access, ask Adam in the private Teams channel. Never post a connection string anywhere public.
