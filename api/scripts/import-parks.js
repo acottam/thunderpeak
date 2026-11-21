@@ -11,11 +11,17 @@ const PAGE_SIZE = 500;
 const MAX_NPS_ATTEMPTS = 3;
 const NPS_RETRY_DELAY_MS = 1000;
 
-// Keep only the two NPS designations used by the Thunderpeak catalogue.
+// Two national parks that NPS does not label "National Park" in the designation field:
+// Redwood ("National and State Parks") and American Samoa (empty designation).
+// They are listed by park code so the filter below stays strict for everything else.
+const EXTRA_PARK_CODES = new Set(['redw', 'npsa']);
+
+// Keep National Parks and National Monuments (plus the two parks above).
 function isParkOrMonument(site) {
   const designation = (site.designation || '').trim().toLowerCase();
   return designation.startsWith('national park')
-    || designation.startsWith('national monument');
+    || designation.startsWith('national monument')
+    || EXTRA_PARK_CODES.has(site.parkCode);
 }
 
 async function requestNpsPage(url, apiKey) {
@@ -111,7 +117,12 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(`Park import failed: ${error.message}`);
-  process.exitCode = 1;
-});
+// Run the import only when this file is started directly, so tests can load the filter.
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(`Park import failed: ${error.message}`);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { isParkOrMonument };
