@@ -135,7 +135,9 @@ Sign-in allows 10 failed attempts per IP per 15 minutes (a correct password neve
 
 ## Visits (Proposed, owner: Godwin)
 
-All three need a token. The user id always comes from the token, never from the request body.
+Updated Nov 21 at Aruzhan's request for the park screen: `park_name` and `next_eligible_date` on `POST /visits`, the `park_id` filter on `GET /me/visits`, and `GET /me/parks/:park_id`.
+
+All visit endpoints need a token. The user id always comes from the token, never from the request body.
 
 ### `POST /visits`
 
@@ -149,10 +151,14 @@ Success, 201:
 {
   "id": 12,
   "park_id": 1,
+  "park_name": "Yellowstone National Park",
   "visited_date": "2026-11-21",
-  "points_awarded": 50
+  "points_awarded": 50,
+  "next_eligible_date": "2027-11-21"
 }
 ```
+
+`park_name` matches `GET /me/visits`, so the app can show a confirmation without another request. `next_eligible_date` is the first date this user can earn points at this park again (see `GET /me/parks/:park_id`).
 
 `points_awarded` is the current calculated award from the `scored_visits` view. A park with no point value scores `0` until a value is set. Backdated visits or corrected park values can change earlier calculated awards.
 
@@ -161,11 +167,12 @@ Success, 201:
 | 400 | `park_id must be a positive integer`, or `visited_date must be a date in the form YYYY-MM-DD and not in the future` |
 | 401 | `Sign in required` |
 | 404 | `Park not found` |
+
 Repeat check-ins are allowed. For each user and park, the first check-in earns the park's points; the next eligible check-in must be at least 12 months after the last point-earning check-in. Additional check-ins are recorded but score zero. Check-ins are evaluated in visit-date order, then by ID for visits on the same date. A check-in on the 12-month anniversary is eligible; for February 29, PostgreSQL uses February 28 in a non-leap year.
 
 ### `GET /me/visits`
 
-Returns the signed-in user's visits, newest first.
+Returns the signed-in user's visits, newest first. Add `?park_id=1` to return only the visits to one park (400 `park_id must be a positive integer` for a bad value, and `[]` if there are none).
 
 ```json
 [
@@ -180,6 +187,49 @@ Returns the signed-in user's visits, newest first.
 ```
 
 An empty list `[]` means no visits yet.
+
+### `GET /me/parks/:park_id`
+
+The signed-in user's status at one park, for the park screen: have they checked in, and when can they earn points again. The server works this out from the `scored_visits` view, so the app never repeats the 12-month rule.
+
+```json
+{
+  "park_id": 1,
+  "visit_count": 2,
+  "last_visited_date": "2026-11-21",
+  "last_awarded_date": "2026-03-02",
+  "next_eligible_date": "2027-03-02",
+  "can_earn_points_now": false
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `visit_count` | All check-ins at this park, including ones that scored zero |
+| `last_visited_date` | The most recent check-in, or `null` if none |
+| `last_awarded_date` | The most recent check-in that earned points, or `null` if none |
+| `next_eligible_date` | `last_awarded_date` plus 12 months, or `null` if the user has never checked in here (they can earn points now) |
+| `can_earn_points_now` | `true` if a check-in today would earn points |
+
+A park the user has never visited returns 200 with `visit_count: 0`, the three dates `null` and `can_earn_points_now: true`.
+
+One query against the `scored_visits` view gives all of it (check that the park exists first, for the 404):
+
+```sql
+SELECT count(*)::int AS visit_count,
+       max(visited_date) AS last_visited_date,
+       max(visited_date) FILTER (WHERE earns_points) AS last_awarded_date,
+       (max(visited_date) FILTER (WHERE earns_points) + INTERVAL '12 months')::date AS next_eligible_date,
+       coalesce(current_date >= (max(visited_date) FILTER (WHERE earns_points) + INTERVAL '12 months')::date, true) AS can_earn_points_now
+FROM scored_visits
+WHERE user_id = $1 AND park_id = $2;
+```
+
+| Status | Message |
+|---|---|
+| 400 | `Park id must be a positive integer` |
+| 401 | `Sign in required` |
+| 404 | `Park not found` |
 
 ### `GET /me/score`
 
@@ -213,6 +263,8 @@ ORDER BY total_points DESC, user_id;
 ```
 
 PostgreSQL returns these totals and counts as `bigint`; the Node PostgreSQL driver returns them as strings by default. The API should handle conversion safely when forming its JSON response.
+
+The same applies to `latitude` and `longitude` (PostgreSQL `NUMERIC`), which the driver also returns as strings. The API returns all of these as JSON numbers, which is what the mobile app's types expect. Dates are returned as `YYYY-MM-DD` strings.
 
 ## Try it
 
