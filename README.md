@@ -84,8 +84,7 @@ If your database uses different credentials, change `DATABASE_URL` in `api/.env`
 ```bash
 cd api
 cp .env.example .env     # never commit .env
-# Put a login secret in api/.env (JWT_SECRET, 32 or more characters). Generate one with:
-#   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+# Set JWT_SECRET in api/.env before using login (see "Login secret" below)
 npm run migrate          # creates the tables and loads the reference data
 npm run dev
 ```
@@ -96,6 +95,19 @@ A new database is empty, so `npm run migrate` is required once. It creates 10 ta
 Running it a second time on the same database fails on the seed step. To start over locally, run `docker compose down -v` and then `docker compose up -d` and `npm run migrate` again.
 
 Check it works: open http://localhost:3000/health (API) and http://localhost:3000/health/db (database).
+
+#### Login secret
+
+Sign-up and sign-in need a secret in `api/.env` to sign login tokens. `.env.example` leaves it empty, so set your own:
+
+1. Generate a value (at least 32 characters):
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+   ```
+2. Paste it after `JWT_SECRET=` in `api/.env`, with no quotes or spaces.
+3. Restart the API.
+
+Each person uses their own secret and never shares or commits it. The live API on Render has a different one, so a token from one environment does not work in the other. Without a secret, `/auth` and `/me` answer 503 and the park routes keep working. If a secret changes, everyone signed in with the old one has to sign in again.
 
 #### NPS API key
 
@@ -154,4 +166,6 @@ Never commit `.env` files, passwords, connection strings or API keys. If one is 
 | Phone cannot reach the API | Use your computer's local network address instead of `localhost`, and keep both on the same Wi-Fi. |
 | `relation does not exist` or the tables are missing | The database has not been loaded. Run `npm run migrate` inside `api/`. |
 | `npm run migrate` fails with `duplicate key value` | The seed already ran on this database. Reset a local database with `docker compose down -v`, then start it again and migrate. |
+| `503` with `Login is not configured` from `/auth` or `/me` | `JWT_SECRET` is missing, or shorter than 32 characters, in `api/.env`. Add it (see Login secret) and restart the API. |
+| `401 Sign in required` right after signing in | The token was made with a different `JWT_SECRET`, for example a local token sent to the live API, or a secret that changed. Sign in again against the same server. |
 | `.env` is missing | Run `cp .env.example .env` inside `api/`. Never commit `.env`. |
