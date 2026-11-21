@@ -7,6 +7,7 @@
 ## Checklist
 - [ ] Branched from the latest `main`
 - [ ] Runs locally
+- [ ] `npm run lint` passes (and `npm test` in `api/`, `npm run typecheck` in `mobile/`)
 - [ ] No `.env` files, passwords, connection strings or API keys committed
 - [ ] README updated if setup steps changed
 - [ ] Reviewer is someone other than the author
