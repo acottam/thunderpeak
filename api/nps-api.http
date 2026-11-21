@@ -1,0 +1,6 @@
+@baseUrl = https://developer.nps.gov/api/v1
+@NPS_API_KEY = {{$dotenv NPS_API_KEY}}
+
+### Get all parks
+GET {{baseUrl}}/parks?limit=10
+X-Api-Key: {{NPS_API_KEY}}
