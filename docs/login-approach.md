@@ -73,7 +73,7 @@ None needed for Sprint 2. The `users` table already has `id`, `username` and `pa
 | No password reset (no email service) | Out of scope. Document it. A forgotten password means a new account for now. |
 | Guessing attacks on login | Add `express-rate-limit` (8.7.5) on the auth routes if time allows. |
 | A stolen token works until it expires | 7 days is the tradeoff. Shorten it or add refresh tokens later. |
-| `JWT_SECRET` is missing in an environment | The API should refuse to start without it, so it fails loudly, not quietly. |
+| `JWT_SECRET` is missing in an environment | The API logs a warning at startup, and `/auth` and `/me` answer 503 "Login is not configured". Parks and health keep working, so a deploy before the secret is set cannot take the API down. |
 | Render's free service sleeps | The first request after a pause takes about a minute. Show a loading state. |
 
 ## Questions for the team
