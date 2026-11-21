@@ -76,7 +76,7 @@ These come from Arlin's `ALTER TABLE parks` change, then Godwin's import fills t
 | `designation` | string | `National Park` or `National Monument` |
 | `latitude`, `longitude` | number | Coordinates |
 | `image_url` | string or null | Photo from NPS |
-| `point_value` | integer | Points for a verified visit (see `docs/park-monument-point-values.md`) |
+| `point_value` | integer | Points for an eligible check-in (see `docs/park-monument-point-values.md`) |
 
 Until these exist, the app must treat them as optional and keep working without them.
 
@@ -154,16 +154,14 @@ Success, 201:
 }
 ```
 
-`points_awarded` is the park's `point_value` at the time of the visit. If the park has no point value yet, it is `0`.
+`points_awarded` is the current calculated award from the `scored_visits` view. A park with no point value scores `0` until a value is set. Backdated visits or corrected park values can change earlier calculated awards.
 
 | Status | Message |
 |---|---|
 | 400 | `park_id must be a positive integer`, or `visited_date must be a date in the form YYYY-MM-DD and not in the future` |
 | 401 | `Sign in required` |
 | 404 | `Park not found` |
-| 409 | `Already checked in at this park` (only if the team decides a park scores once per user) |
-
-**Open decision:** does a park score once per user, or once per visit? Until the team decides, the endpoint accepts repeat visits and does not return 409.
+Repeat check-ins are allowed. For each user and park, the first check-in earns the park's points; the next eligible check-in must be at least 12 months after the last point-earning check-in. Additional check-ins are recorded but score zero. Check-ins are evaluated in visit-date order, then by ID for visits on the same date. A check-in on the 12-month anniversary is eligible; for February 29, PostgreSQL uses February 28 in a non-leap year.
 
 ### `GET /me/visits`
 
@@ -192,6 +190,29 @@ Returns the signed-in user's totals.
 ```
 
 Both fields are `0` for a new account.
+
+### Scoring queries for the visit API and leaderboard
+
+The database migration adds two views: `scored_visits` calculates an award for each check-in, and `user_scores` totals all park awards and counts all check-ins, including repeats. All recorded check-ins count for now; there is no verification status yet. Hiking, camping, activities and wildlife are not included in this sprint's score.
+
+For one user, use the signed-in user ID as a parameter:
+
+```sql
+SELECT total_points, visit_count
+FROM user_scores
+WHERE user_id = $1;
+```
+
+For all users, including users with no visits, the same totals can be ranked:
+
+```sql
+SELECT user_id, username, total_points, visit_count,
+       RANK() OVER (ORDER BY total_points DESC) AS rank
+FROM user_scores
+ORDER BY total_points DESC, user_id;
+```
+
+PostgreSQL returns these totals and counts as `bigint`; the Node PostgreSQL driver returns them as strings by default. The API should handle conversion safely when forming its JSON response.
 
 ## Try it
 

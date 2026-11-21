@@ -66,7 +66,7 @@ On Windows, Docker Desktop needs WSL 2 and virtualization enabled in BIOS.
 
 **Option B: Install PostgreSQL directly (no Docker)**
 
-Install PostgreSQL 17 from https://www.postgresql.org/download, then create the user and database the API expects:
+Install PostgreSQL 17 from https://www.postgresql.org/download, then create the user and a UTF-8 database the API expects:
 
 ```bash
 psql -U postgres
@@ -74,7 +74,7 @@ psql -U postgres
 
 ```sql
 CREATE USER thunderpeak WITH PASSWORD 'thunderpeak';
-CREATE DATABASE thunderpeak OWNER thunderpeak;
+CREATE DATABASE thunderpeak OWNER thunderpeak ENCODING 'UTF8' TEMPLATE template0;
 ```
 
 If your database uses different credentials, change `DATABASE_URL` in `api/.env` to match.
@@ -95,6 +95,28 @@ A new database is empty, so `npm run migrate` is required once. It creates 10 ta
 Running it a second time on the same database fails on the seed step. To start over locally, run `docker compose down -v` and then `docker compose up -d` and `npm run migrate` again.
 
 Check it works: open http://localhost:3000/health (API) and http://localhost:3000/health/db (database).
+
+#### Sprint 2 database update
+
+For an existing database already loaded with the Sprint 1 schema, run `npm run migrate:park-scoring` from `api/`. This adds the park catalogue fields and scoring views without rerunning the reference seed. It can be run again safely. New databases get the same update through `npm run migrate`.
+
+The migration leaves existing park point values empty; Godwin's import will populate them. Until then, visits to those parks score zero, and their totals update when a value is added. Do not reset a shared database to apply the update. Confirm the target database and arrange a backup before applying it on Render.
+
+For local or disposable test databases only, `api/sample-visits.sql` creates sample parks, users and visits. After applying the migration, load it with `psql` against the local test database, for example:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f sample-visits.sql
+```
+
+Run this from `api/` with `DATABASE_URL` set in your shell to the local database. The sample accounts cannot log in. Never run this sample seed against Render.
+
+The scoring views and example queries are described in [docs/api.md](docs/api.md). Database integration tests require a disposable PostgreSQL database and create a schema inside a rolled-back transaction:
+
+```bash
+# Set TEST_DATABASE_URL in your shell to a disposable PostgreSQL database first.
+cd api
+npm run test:database
+```
 
 #### Login secret
 
