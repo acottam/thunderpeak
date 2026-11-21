@@ -97,6 +97,15 @@ Check it works: open http://localhost:3000/health (API) and http://localhost:300
 
 Anything that calls the National Park Service API needs a key. Each person registers their own free key at https://www.nps.gov/subjects/developer/get-started.htm and puts it in `api/.env` as `NPS_API_KEY`. Never commit a key, and do not put one in any other file in the repo, because this repository is public. If a key is ever committed, get a new one: deleting the file does not remove it from Git history.
 
+To populate the park catalogue, set `NPS_API_KEY` in `api/.env`, then run:
+
+```bash
+cd api
+npm run import:parks
+```
+
+This imports National Parks and National Monuments from NPS into the existing `parks` table. The script maps NPS `fullName`, `description`, and `states` to the table's `name`, `description`, and `location` fields.
+
 ### 4. Run the mobile app
 
 ```bash

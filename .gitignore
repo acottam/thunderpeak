@@ -147,3 +147,10 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+#my-todo
+my-todo.md
+
+#rest client env file
+rest-client.env.json
+
