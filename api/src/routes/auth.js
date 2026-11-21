@@ -2,6 +2,7 @@ const express = require('express');
 const { hashPassword, verifyPassword } = require('../auth/password');
 const { signToken, isConfigured } = require('../auth/token');
 const { createUser, findUserByUsername } = require('../queries/users');
+const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ router.use((req, res, next) => {
   return next();
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   const { username, password } = readCredentials(req.body);
   if (!USERNAME_PATTERN.test(username)) {
     return error(res, 400, 'Username must be 3 to 30 characters: letters, digits and underscore');
@@ -47,7 +48,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = readCredentials(req.body);
   if (!username || !password) {
     return error(res, 400, 'Username and password are required');

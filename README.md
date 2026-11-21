@@ -130,6 +130,7 @@ The API runs on Render at https://thunderpeak-api.onrender.com (check `/health` 
 - The team database is hosted on Render and is not open to outside connections. If you need access, ask Adam in the private Teams channel. Never post a connection string anywhere public.
 - Render's free database expires on 2026-12-14.
 - Login needs a `JWT_SECRET` environment variable on the Render service. Without it the API still runs, but `/auth` and `/me` answer 503.
+- Login rate limiting (10 failed sign-ins per IP per 15 minutes) needs `TRUST_PROXY` on Render, the number of proxies in front of the app. Until it is set, the limiter is off and the API logs a warning. To check a value: set `TRUST_PROXY=1`, send 11 wrong sign-ins from your computer (you should get 429), then try one from a phone on cellular data. If the phone also gets 429, everyone shares one bucket, so try `TRUST_PROXY=2`.
 
 ## Team Workflow
 

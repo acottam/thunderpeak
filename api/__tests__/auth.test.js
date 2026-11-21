@@ -1,4 +1,6 @@
 process.env.JWT_SECRET = 'test-secret-that-is-at-least-thirty-two-characters-long';
+process.env.LOGIN_RATE_LIMIT_MAX = '1000';
+process.env.REGISTER_RATE_LIMIT_MAX = '1000';
 
 jest.mock('../src/db', () => ({ query: jest.fn() }));
 

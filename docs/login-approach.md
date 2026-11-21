@@ -71,7 +71,8 @@ None needed for Sprint 2. The `users` table already has `id`, `username` and `pa
 | Risk | Plan |
 |---|---|
 | No password reset (no email service) | Out of scope. Document it. A forgotten password means a new account for now. |
-| Guessing attacks on login | Add `express-rate-limit` (8.7.5) on the auth routes if time allows. |
+| Guessing attacks on login | Done: `express-rate-limit` 8.7.5. Sign-in allows 10 failed attempts per IP per 15 minutes (correct passwords do not count). Sign-up allows 10 attempts per IP per hour. Limits are in memory, so they reset when the free Render service restarts or sleeps. |
+| Rate limit on Render sees one shared proxy IP | The limiter stays off on Render until `TRUST_PROXY` (the number of proxies in front of the app) is set, so a wrong setup cannot lock every user out. Check the number with a second network before relying on it, see the README. |
 | A stolen token works until it expires | 7 days is the tradeoff. Shorten it or add refresh tokens later. |
 | `JWT_SECRET` is missing in an environment | The API logs a warning at startup, and `/auth` and `/me` answer 503 "Login is not configured". Parks and health keep working, so a deploy before the secret is set cannot take the API down. |
 | Render's free service sleeps | The first request after a pause takes about a minute. Show a loading state. |

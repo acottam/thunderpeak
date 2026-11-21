@@ -6,6 +6,9 @@ const authRouter = require('./routes/auth');
 const meRouter = require('./routes/me');
 
 const app = express();
+// Number of proxies in front of the app (Render sits behind its own). Needed for per-visitor rate limits.
+const trustProxy = Number(process.env.TRUST_PROXY);
+if (Number.isInteger(trustProxy) && trustProxy > 0) app.set('trust proxy', trustProxy);
 app.use(cors());
 app.use(express.json());
 // Mount park catalogue endpoints at /parks.
