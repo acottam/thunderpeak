@@ -153,6 +153,8 @@ Endpoint reference with request and response examples: [docs/api.md](docs/api.md
 3. Write meaningful commit messages. Before you open a pull request, run the checks for the part you changed:
    - `api/`: `npm run lint` and `npm test`, then run the API and check `/health/db`
    - `mobile/`: `npm run lint` and `npm run typecheck`
+
+   GitHub runs the same checks on every pull request (the CI workflow). A red X on the PR means a check failed, so open the details and fix it before asking for a review.
 4. Open a pull request with a short description of what changed and how you tested it.
 5. A teammate other than the author reviews it. Reviewers check that it runs, that nothing secret is committed and that the change matches the description.
 6. Merge with a regular merge commit so each author's commits stay in the history. Delete the branch afterward.
