@@ -1,15 +1,43 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { formatStates } from '@/components/ParkCard';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ApiError } from '@/api/client';
+import { bannerColor, designationOf, fetchPark, formatStates, getCachedPark, pointsFor, shortName } from '@/api/parks';
+import { useAuth } from '@/auth/AuthContext';
+import { LoadState } from '@/components/LoadState';
 import { PointsBadge } from '@/components/PointsBadge';
-import { getSampleParkById, pointsFor, SITE_CLASS_LABEL } from '@/data/sampleParks';
 import { colors, radius, spacing } from '@/theme';
+import type { Park } from '@/types/park';
 
 export default function ParkDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const park = getSampleParkById(Number(id));
+  const parkId = Number(id);
+  const { status } = useAuth();
+  // Opened from the catalogue: use the park we already have. Opened by link: fetch it.
+  const [park, setPark] = useState<Park | null>(() => getCachedPark(parkId) ?? null);
+  const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
-  if (!park) {
+  const [attempt, setAttempt] = useState(0); // bumped by "Try again"
+
+  useEffect(() => {
+    if (getCachedPark(parkId)) return;
+    let active = true;
+    fetchPark(parkId)
+      .then((p) => {
+        if (active) setPark(p);
+      })
+      .catch((e: unknown) => {
+        if (!active) return;
+        if (e instanceof ApiError && (e.status === 404 || e.status === 400)) setNotFound(true);
+        else setError(e instanceof Error ? e.message : 'Could not load this park.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [parkId, attempt]);
+
+  if (notFound) {
     return (
       <View style={styles.center}>
         <Stack.Screen options={{ title: 'Not found' }} />
@@ -19,68 +47,62 @@ export default function ParkDetailScreen() {
     );
   }
 
+  if (!park) {
+    const retry = () => {
+      setError(null);
+      setAttempt((n) => n + 1);
+    };
+    return <LoadState error={error} loadingText="Loading park…" onRetry={retry} />;
+  }
+
   const points = pointsFor(park);
   // Check-in, logging and scoring are later sprint tasks; buttons are placeholders.
   const comingSoon = (what: string) => Alert.alert(what, 'Coming in a later sprint.');
+  const onCheckIn = () => (status === 'signedIn' ? comingSoon('Check in') : router.push('/login'));
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Stack.Screen options={{ title: park.name.replace(/ National (Park|Monument)$/, '') }} />
+      <Stack.Screen options={{ title: shortName(park) }} />
 
-      <View style={[styles.hero, { backgroundColor: park.imageColor ?? colors.primary }]}>
-        <Text style={styles.heroLetter}>{park.name.charAt(0)}</Text>
-        <Text style={styles.heroNote}>Photo from NPS API (later)</Text>
-      </View>
+      {park.image_url ? (
+        <Image source={{ uri: park.image_url }} style={styles.hero} accessibilityIgnoresInvertColors />
+      ) : (
+        <View style={[styles.hero, { backgroundColor: bannerColor(park) }]}>
+          <Text style={styles.heroLetter}>{park.name.charAt(0)}</Text>
+        </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.title}>{park.name}</Text>
         <Text style={styles.muted}>
-          {park.designation ?? 'Park'} · {formatStates(park.location)}
+          {designationOf(park) ?? 'Park'} · {formatStates(park.location)}
         </Text>
         <View style={styles.row}>
-          <PointsBadge points={points} large />
-          {park.siteClass && <Text style={styles.muted}>{SITE_CLASS_LABEL[park.siteClass]} · per verified visit</Text>}
+          {points === null ? (
+            <Text style={styles.muted}>Point value coming soon</Text>
+          ) : (
+            <>
+              <PointsBadge points={points} large />
+              <Text style={styles.muted}>per eligible check-in</Text>
+            </>
+          )}
         </View>
       </View>
 
       <Pressable
         style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.8 }]}
-        onPress={() => comingSoon('Check in')}
+        onPress={onCheckIn}
         accessibilityRole="button"
       >
-        <Text style={styles.primaryButtonText}>Check in at this park</Text>
+        <Text style={styles.primaryButtonText}>
+          {status === 'signedIn' ? 'Check in at this park' : 'Sign in to check in'}
+        </Text>
       </Pressable>
 
       {park.description ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <Text style={styles.body}>{park.description}</Text>
-        </View>
-      ) : null}
-
-      {park.activities?.length ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Activities</Text>
-          <View style={styles.chips}>
-            {park.activities.map((a) => (
-              <View key={a} style={styles.chip}>
-                <Text style={styles.chipText}>{a}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      ) : null}
-
-      {park.wildlife?.length ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Wildlife you might spot</Text>
-          <View style={styles.chips}>
-            {park.wildlife.map((w) => (
-              <View key={w} style={styles.chip}>
-                <Text style={styles.chipText}>{w}</Text>
-              </View>
-            ))}
-          </View>
         </View>
       ) : null}
 
@@ -101,16 +123,12 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.lg },
   hero: { height: 180, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
   heroLetter: { color: '#fff', fontSize: 72, fontWeight: '800' },
-  heroNote: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },
   section: { gap: spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   title: { fontSize: 24, fontWeight: '800', color: colors.text },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
   body: { fontSize: 15, lineHeight: 22, color: colors.text },
   muted: { fontSize: 14, color: colors.textMuted },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: { backgroundColor: colors.chip, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
-  chipText: { color: colors.text, fontSize: 13, fontWeight: '600' },
   primaryButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,

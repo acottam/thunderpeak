@@ -9,6 +9,7 @@ export const colors = {
   textMuted: '#5E6B63',
   border: '#DDD6C6',
   chip: '#E7E1D2',
+  danger: '#B3261E',
 };
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };

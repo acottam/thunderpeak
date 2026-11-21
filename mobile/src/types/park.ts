@@ -1,26 +1,20 @@
-// Shape of a park as returned by GET /parks and GET /parks/:id.
-// The first block mirrors the `parks` table exactly, so swapping the
-// sample data for the real API later should not change any screen code.
-export type ApiPark = {
+// Shape of a park as returned by GET /parks and GET /parks/:id (docs/api.md).
+export type Park = {
   id: number;
   name: string;
   description: string | null;
-  location: string | null; // NPS `states`, comma separated, e.g. "WY,MT,ID"
+  location: string | null; // NPS `states`, comma separated, e.g. "ID,MT,WY"
   created_at: string;
   updated_at: string;
+
+  // Planned fields (Proposed in docs/api.md). Optional until the API returns them.
+  park_code?: string;
+  designation?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  image_url?: string | null;
+  point_value?: number | null;
 };
 
-export type Designation = 'National Park' | 'National Historical Park' | 'National Monument';
-
-// Sprint 1 point schedule from docs/park-monument-point-values.md.
-export type SiteClass = 'small' | 'medium' | 'large' | 'hardcore' | 'monument';
-
-// Fields the app will need but the API does not return yet.
-// They are optional so real API rows still type-check.
-export type Park = ApiPark & {
-  designation?: Designation;
-  siteClass?: SiteClass;
-  activities?: string[]; // names from the `activities` seed table
-  wildlife?: string[]; // names from the `animals` seed table
-  imageColor?: string; // placeholder banner color until NPS images are wired up
-};
+// The catalogue holds only national parks and monuments.
+export type Designation = 'National Park' | 'National Monument';
