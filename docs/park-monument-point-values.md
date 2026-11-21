@@ -22,8 +22,10 @@ This document defines the Thunderpeak points awarded for a successfully verified
 
 ## Awarding points
 
-- Award the site's listed points after a visit has been successfully verified.
+- For Sprint 2, recorded check-ins are scored without a separate verification step.
 - Apply only one site-visit value per visit. Do not add the hardcore value to a park's size-based value.
+- A user may check in at a park multiple times. A check-in earns points only if it is the first at that park or is at least 12 months after the previous point-earning check-in there.
+- Calculate eligibility in visit-date order (and ID order for the same date). A backdated check-in can change later awards. Scores use the park's current point value, so correcting it also updates earlier calculated awards.
 - Hiking, camping, activities, and wildlife sightings are scored separately under their own rules.
 - Store the current classification and point value with the park record so the team can update them without changing the NPS catalogue data.
 
@@ -37,4 +39,3 @@ This document defines the Thunderpeak points awarded for a successfully verified
 
 - Define objective size thresholds for small, medium, and large National Parks.
 - Agree on the criteria for hardcore / difficult-to-reach status and identify qualifying parks.
-- Decide whether repeat verified visits to the same site earn the full site-visit value each time.
