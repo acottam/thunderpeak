@@ -153,7 +153,7 @@ npm start
 
 Scan the QR code with the Expo Go app on your phone, or press `w` to open it in a web browser.
 iOS Simulator needs Xcode and Android Emulator needs Android Studio, but neither is required.
-On a physical phone, the app reaches the API using your computer's local network address, not `localhost`.
+The app uses the live API (https://thunderpeak-api.onrender.com) by default, because a phone cannot reach `localhost`. To use your own API instead, start Expo with your computer's local network address, for example `EXPO_PUBLIC_API_URL=http://192.168.1.20:3000 npm start` (phone and computer on the same Wi-Fi).
 
 ## Live API
 

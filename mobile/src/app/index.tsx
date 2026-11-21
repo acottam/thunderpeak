@@ -1,34 +1,74 @@
-import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { designationOf, fetchParks } from '@/api/parks';
+import { LoadState } from '@/components/LoadState';
 import { ParkCard } from '@/components/ParkCard';
-import { SAMPLE_PARKS } from '@/data/sampleParks';
 import { colors, radius, spacing } from '@/theme';
-import type { Designation } from '@/types/park';
+import type { Designation, Park } from '@/types/park';
 
 type Filter = 'All' | Designation;
 const FILTERS: Filter[] = ['All', 'National Park', 'National Monument'];
 
 export default function ParkCatalogScreen() {
+  const [parks, setParks] = useState<Park[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
 
-  const parks = useMemo(() => {
+  // Bumped by "Try again" and pull to refresh to load the list again.
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    fetchParks()
+      .then((list) => {
+        if (!active) return;
+        setParks(list);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        if (active) setError(e instanceof Error ? e.message : 'Could not load parks.');
+      })
+      .finally(() => {
+        if (active) setRefreshing(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [attempt]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setAttempt((n) => n + 1);
+  }, []);
+
+  const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return SAMPLE_PARKS.filter((p) => {
-      if (filter !== 'All' && p.designation !== filter) return false;
+    return (parks ?? []).filter((p) => {
+      if (filter !== 'All' && designationOf(p) !== filter) return false;
       if (!q) return true;
       return p.name.toLowerCase().includes(q) || (p.location ?? '').toLowerCase().includes(q);
     });
-  }, [query, filter]);
+  }, [parks, query, filter]);
+
+  if (!parks) {
+    const retry = () => {
+      setError(null);
+      setAttempt((n) => n + 1);
+    };
+    return <LoadState error={error} loadingText="Loading parks…" onRetry={retry} />;
+  }
 
   return (
     <FlatList
-      data={parks}
+      data={shown}
       keyExtractor={(p) => String(p.id)}
       renderItem={({ item }) => <ParkCard park={item} />}
       contentContainerStyle={styles.list}
       ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
       keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       ListHeaderComponent={
         <View style={styles.header}>
           <Text style={styles.subtitle}>Pick a park, check in, and start earning points.</Text>
@@ -60,12 +100,17 @@ export default function ParkCatalogScreen() {
               );
             })}
           </View>
+          {error ? <Text style={styles.error}>Could not refresh: {error}</Text> : null}
           <Text style={styles.count}>
-            {parks.length} {parks.length === 1 ? 'site' : 'sites'} · sample data
+            {shown.length} {shown.length === 1 ? 'site' : 'sites'}
           </Text>
         </View>
       }
-      ListEmptyComponent={<Text style={styles.empty}>No parks match “{query}”.</Text>}
+      ListEmptyComponent={
+        <Text style={styles.empty}>
+          {parks.length === 0 ? 'No parks have been loaded yet.' : `No parks match “${query}”.`}
+        </Text>
+      }
     />
   );
 }
@@ -95,5 +140,6 @@ const styles = StyleSheet.create({
   chipText: { color: colors.text, fontWeight: '600' },
   chipTextActive: { color: colors.primaryText },
   count: { fontSize: 13, color: colors.textMuted },
+  error: { fontSize: 13, color: colors.danger },
   empty: { textAlign: 'center', color: colors.textMuted, marginTop: spacing.xl },
 });
