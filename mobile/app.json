@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Thunderpeak",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -22,7 +22,12 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-router",
       "expo-status-bar"
-    ]
+    ],
+    "scheme": "thunderpeak",
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }
