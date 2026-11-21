@@ -2,12 +2,20 @@ const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
 const parksRouter = require('./routes/parks');
+const authRouter = require('./routes/auth');
+const meRouter = require('./routes/me');
 
 const app = express();
+// Number of proxies in front of the app (Render sits behind its own). Needed for per-visitor rate limits.
+const trustProxy = Number(process.env.TRUST_PROXY);
+if (Number.isInteger(trustProxy) && trustProxy > 0) app.set('trust proxy', trustProxy);
 app.use(cors());
 app.use(express.json());
 // Mount park catalogue endpoints at /parks.
 app.use('/parks', parksRouter);
+// Sign up, sign in and the signed-in user.
+app.use('/auth', authRouter);
+app.use('/me', meRouter);
 
 // Health check: confirms the API is up. Render also uses this path.
 app.get('/health', (req, res) => {

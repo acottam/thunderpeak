@@ -84,9 +84,13 @@ If your database uses different credentials, change `DATABASE_URL` in `api/.env`
 ```bash
 cd api
 cp .env.example .env     # never commit .env
+# Put a login secret in api/.env (JWT_SECRET, 32 or more characters). Generate one with:
+#   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 npm run migrate          # creates the tables and loads the reference data
 npm run dev
 ```
+
+`npm test` runs the API tests (no database needed).
 
 A new database is empty, so `npm run migrate` is required once. It creates 10 tables and seeds hike difficulties, animals and activities.
 Running it a second time on the same database fails on the seed step. To start over locally, run `docker compose down -v` and then `docker compose up -d` and `npm run migrate` again.
@@ -125,6 +129,8 @@ The API runs on Render at https://thunderpeak-api.onrender.com (check `/health` 
 - Every merge to `main` deploys automatically.
 - The team database is hosted on Render and is not open to outside connections. If you need access, ask Adam in the private Teams channel. Never post a connection string anywhere public.
 - Render's free database expires on 2026-12-14.
+- Login needs a `JWT_SECRET` environment variable on the Render service. Without it the API still runs, but `/auth` and `/me` answer 503.
+- Login rate limiting (10 failed sign-ins per IP per 15 minutes) needs `TRUST_PROXY` on Render, the number of proxies in front of the app. Until it is set, the limiter is off and the API logs a warning. To check a value: set `TRUST_PROXY=1`, send 11 wrong sign-ins from your computer (you should get 429), then try one from a phone on cellular data. If the phone also gets 429, everyone shares one bucket, so try `TRUST_PROXY=2`.
 
 ## Team Workflow
 
