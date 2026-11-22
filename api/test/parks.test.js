@@ -1,15 +1,9 @@
-const assert = require('node:assert/strict');
-const { test } = require('node:test');
+jest.mock('../src/queries/parks', () => ({
+  getParks: jest.fn(),
+  getParkById: jest.fn(),
+}));
 
-// Replace database calls so route tests run without PostgreSQL.
 const parkQueries = require('../src/queries/parks');
-const mockQueries = {
-  getParks: async () => [],
-  getParkById: async () => null,
-};
-parkQueries.getParks = (...args) => mockQueries.getParks(...args);
-parkQueries.getParkById = (...args) => mockQueries.getParkById(...args);
-
 const parksRouter = require('../src/routes/parks');
 const { listParks, getPark } = parksRouter.handlers;
 
@@ -28,7 +22,7 @@ function createResponse() {
   };
 }
 
-test('GET /parks routes', async (t) => {
+describe('GET /parks routes', () => {
   const park = {
     id: 12,
     name: 'Redwood National Park',
@@ -36,85 +30,64 @@ test('GET /parks routes', async (t) => {
     location: 'CA',
   };
 
-  await t.test('registers GET /parks and GET /parks/:id', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('registers GET /parks and GET /parks/:id', () => {
     const getRoutes = parksRouter.stack
       .filter((layer) => layer.route && layer.route.methods.get)
       .map((layer) => layer.route.path);
-    assert.deepEqual(getRoutes, ['/', '/:id']);
+    expect(getRoutes).toEqual(['/', '/:id']);
   });
 
-  await t.test('GET /parks returns the catalogue', async () => {
-    mockQueries.getParks = async () => [park];
+  test('GET /parks returns the catalogue', async () => {
+    parkQueries.getParks.mockResolvedValue([park]);
     const res = createResponse();
 
     await listParks({}, res);
 
-    assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.body, [park]);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual([park]);
   });
 
-  await t.test('GET /parks/:id returns the matching park', async () => {
-    let requestedId;
-    mockQueries.getParkById = async (id) => {
-      requestedId = id;
-      return park;
-    };
+  test('GET /parks/:id returns the matching park', async () => {
+    parkQueries.getParkById.mockResolvedValue(park);
     const res = createResponse();
 
     await getPark({ params: { id: '12' } }, res);
 
-    assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.body, park);
-    assert.equal(requestedId, 12);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual(park);
+    expect(parkQueries.getParkById).toHaveBeenCalledWith(12);
   });
 
-  await t.test('GET /parks/:id rejects invalid IDs without querying the database', async () => {
-    let queryCalled = false;
-    mockQueries.getParkById = async () => {
-      queryCalled = true;
-      return park;
-    };
+  test('GET /parks/:id rejects invalid IDs without querying the database', async () => {
     const res = createResponse();
 
     await getPark({ params: { id: 'not-an-id' } }, res);
 
-    assert.equal(res.statusCode, 400);
-    assert.equal(queryCalled, false);
+    expect(res.statusCode).toBe(400);
+    expect(parkQueries.getParkById).not.toHaveBeenCalled();
   });
 
-  await t.test('GET /parks/:id returns 404 when no park matches', async () => {
-    mockQueries.getParkById = async () => null;
+  test('GET /parks/:id returns 404 when no park matches', async () => {
+    parkQueries.getParkById.mockResolvedValue(null);
     const res = createResponse();
 
     await getPark({ params: { id: '999' } }, res);
 
-    assert.equal(res.statusCode, 404);
-    assert.deepEqual(res.body, { status: 'error', message: 'Park not found' });
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toEqual({ status: 'error', message: 'Park not found' });
   });
 
-  await t.test('GET /parks returns 503 when its database query fails', async (t) => {
-    t.mock.method(console, 'error', () => {});
-    mockQueries.getParks = async () => {
-      throw new Error('database unavailable');
-    };
+  test('database errors return 503', async () => {
+    const logError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    parkQueries.getParks.mockRejectedValue(new Error('database unavailable'));
     const res = createResponse();
 
     await listParks({}, res);
 
-    assert.equal(res.statusCode, 503);
-    assert.deepEqual(res.body, { status: 'error', message: 'Park catalogue unavailable' });
-  });
-
-  await t.test('GET /parks/:id returns 503 when its database query fails', async (t) => {
-    t.mock.method(console, 'error', () => {});
-    mockQueries.getParkById = async () => {
-      throw new Error('database unavailable');
-    };
-    const res = createResponse();
-
-    await getPark({ params: { id: '12' } }, res);
-
-    assert.equal(res.statusCode, 503);
-    assert.deepEqual(res.body, { status: 'error', message: 'Park catalogue unavailable' });
+    expect(res.statusCode).toBe(503);
+    expect(res.body).toEqual({ status: 'error', message: 'Park catalogue unavailable' });
+    logError.mockRestore();
   });
 });
