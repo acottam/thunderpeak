@@ -22,17 +22,13 @@ const MEDIUM_DESIGNATIONS = [
 const HARD_ACCESS_PATTERN = /\bferry\b|\bseaplane\b|\bbush plane\b|\bfour[- ]wheel drive\b|\b4wd\b|\bno roads\b|\bpermit required\b/i;
 const MEDIUM_ACCESS_PATTERN = /seasonal closures|\bsnow\b|\bunpaved\b|high elevation/i;
 
-// Include the guide's designations plus the two park-code exceptions from NPS.
+// Keep the original National Park and Monument designations plus Redwood and American Samoa.
 function isParkOrMonument(site) {
   const designation = (site.designation || '').trim().toLowerCase();
   const parkCode = (site.parkCode || '').trim().toLowerCase();
   return SPECIAL_PARK_CODES.has(parkCode)
     || designation.startsWith('national park')
-    || designation.startsWith('national monument')
-    || designation.startsWith('national memorial')
-    || designation.startsWith('national historic site')
-    || designation.startsWith('national seashore')
-    || designation.startsWith('national recreation area');
+    || designation.startsWith('national monument');
 }
 
 function parseNumber(value) {
