@@ -93,6 +93,10 @@ Running it a second time on the same database fails on the seed step. To start o
 
 Check it works: open http://localhost:3000/health (API) and http://localhost:3000/health/db (database).
 
+#### Run API tests
+
+From the `api` directory, run `npm test`. The park route tests cover catalogue and detail responses, invalid or missing IDs, and database errors. They mock database calls, so PostgreSQL does not need to be running.
+
 #### NPS API key
 
 Anything that calls the National Park Service API needs a key. Each person registers their own free key at https://www.nps.gov/subjects/developer/get-started.htm and puts it in `api/.env` as `NPS_API_KEY`. Never commit a key, and do not put one in any other file in the repo, because this repository is public. If a key is ever committed, get a new one: deleting the file does not remove it from Git history.
