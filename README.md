@@ -66,7 +66,7 @@ On Windows, Docker Desktop needs WSL 2 and virtualization enabled in BIOS.
 
 **Option B: Install PostgreSQL directly (no Docker)**
 
-Install PostgreSQL 17 from https://www.postgresql.org/download, then create the user and database the API expects:
+Install PostgreSQL 17 from https://www.postgresql.org/download, then create the user and a UTF-8 database the API expects:
 
 ```bash
 psql -U postgres
@@ -74,7 +74,7 @@ psql -U postgres
 
 ```sql
 CREATE USER thunderpeak WITH PASSWORD 'thunderpeak';
-CREATE DATABASE thunderpeak OWNER thunderpeak;
+CREATE DATABASE thunderpeak OWNER thunderpeak ENCODING 'UTF8' TEMPLATE template0;
 ```
 
 If your database uses different credentials, change `DATABASE_URL` in `api/.env` to match.
@@ -84,9 +84,12 @@ If your database uses different credentials, change `DATABASE_URL` in `api/.env`
 ```bash
 cd api
 cp .env.example .env     # never commit .env
+# Set JWT_SECRET in api/.env before using login (see "Login secret" below)
 npm run migrate          # creates the tables and loads the reference data
 npm run dev
 ```
+
+`npm test` runs the API tests (no database needed).
 
 A new database is empty, so `npm run migrate` is required once. It creates 10 tables and seeds hike difficulties, animals and activities.
 Running it a second time on the same database fails on the seed step. To start over locally, run `docker compose down -v` and then `docker compose up -d` and `npm run migrate` again.
@@ -96,6 +99,41 @@ Check it works: open http://localhost:3000/health (API) and http://localhost:300
 #### Run API tests
 
 From the `api` directory, run `npm test`. The park route tests cover catalogue and detail responses, invalid or missing IDs, and database errors. They mock database calls, so PostgreSQL does not need to be running.
+
+#### Sprint 2 database update
+
+For an existing database already loaded with the Sprint 1 schema, run `npm run migrate:park-scoring` from `api/`. This adds the park catalogue fields and scoring views without rerunning the reference seed. It can be run again safely. New databases get the same update through `npm run migrate`.
+
+The migration leaves existing park point values empty; Godwin's import will populate them. Until then, visits to those parks score zero, and their totals update when a value is added. Do not reset a shared database to apply the update. Confirm the target database and arrange a backup before applying it on Render.
+
+For local or disposable test databases only, `api/sample-visits.sql` creates sample parks, users and visits. After applying the migration, load it with `psql` against the local test database, for example:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f sample-visits.sql
+```
+
+Run this from `api/` with `DATABASE_URL` set in your shell to the local database. The sample accounts cannot log in. Never run this sample seed against Render.
+
+The scoring views and example queries are described in [docs/api.md](docs/api.md). Database integration tests require a disposable PostgreSQL database and create a schema inside a rolled-back transaction:
+
+```bash
+# Set TEST_DATABASE_URL in your shell to a disposable PostgreSQL database first.
+cd api
+npm run test:database
+```
+
+#### Login secret
+
+Sign-up and sign-in need a secret in `api/.env` to sign login tokens. `.env.example` leaves it empty, so set your own:
+
+1. Generate a value (at least 32 characters):
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+   ```
+2. Paste it after `JWT_SECRET=` in `api/.env`, with no quotes or spaces.
+3. Restart the API.
+
+Each person uses their own secret and never shares or commits it. The live API on Render has a different one, so a token from one environment does not work in the other. Without a secret, `/auth` and `/me` answer 503 and the park routes keep working. If a secret changes, everyone signed in with the old one has to sign in again.
 
 #### NPS API key
 
@@ -119,22 +157,30 @@ npm start
 
 Scan the QR code with the Expo Go app on your phone, or press `w` to open it in a web browser.
 iOS Simulator needs Xcode and Android Emulator needs Android Studio, but neither is required.
-On a physical phone, the app reaches the API using your computer's local network address, not `localhost`.
+The app uses the live API (https://thunderpeak-api.onrender.com) by default, because a phone cannot reach `localhost`. To use your own API instead, start Expo with your computer's local network address, for example `EXPO_PUBLIC_API_URL=http://192.168.1.20:3000 npm start` (phone and computer on the same Wi-Fi).
 
 ## Live API
 
 The API runs on Render at https://thunderpeak-api.onrender.com (check `/health` and `/health/db`).
 
+Endpoint reference with request and response examples: [docs/api.md](docs/api.md).
+
 - It uses Render's free plan and goes to sleep after 15 minutes without traffic. The first request afterward takes about a minute.
 - Every merge to `main` deploys automatically.
 - The team database is hosted on Render and is not open to outside connections. If you need access, ask Adam in the private Teams channel. Never post a connection string anywhere public.
 - Render's free database expires on 2026-12-14.
+- Login needs a `JWT_SECRET` environment variable on the Render service. Without it the API still runs, but `/auth` and `/me` answer 503.
+- Login rate limiting (10 failed sign-ins per IP per 15 minutes) needs `TRUST_PROXY` on Render, the number of proxies in front of the app. Until it is set, the limiter is off and the API logs a warning. To check a value: set `TRUST_PROXY=1`, send 11 wrong sign-ins from your computer (you should get 429), then try one from a phone on cellular data. If the phone also gets 429, everyone shares one bucket, so try `TRUST_PROXY=2`.
 
 ## Team Workflow
 
 1. Start from the latest `main`: `git checkout main`, then `git pull`.
 2. Work on a branch named `yourname/short-description`, never directly on `main`.
-3. Write meaningful commit messages. Run the API and check `/health/db` before you open a pull request.
+3. Write meaningful commit messages. Before you open a pull request, run the checks for the part you changed:
+   - `api/`: `npm run lint` and `npm test`, then run the API and check `/health/db`
+   - `mobile/`: `npm run lint` and `npm run typecheck`
+
+   GitHub runs the same checks on every pull request (the CI workflow). A red X on the PR means a check failed, so open the details and fix it before asking for a review.
 4. Open a pull request with a short description of what changed and how you tested it.
 5. A teammate other than the author reviews it. Reviewers check that it runs, that nothing secret is committed and that the change matches the description.
 6. Merge with a regular merge commit so each author's commits stay in the history. Delete the branch afterward.
@@ -152,4 +198,6 @@ Never commit `.env` files, passwords, connection strings or API keys. If one is 
 | Phone cannot reach the API | Use your computer's local network address instead of `localhost`, and keep both on the same Wi-Fi. |
 | `relation does not exist` or the tables are missing | The database has not been loaded. Run `npm run migrate` inside `api/`. |
 | `npm run migrate` fails with `duplicate key value` | The seed already ran on this database. Reset a local database with `docker compose down -v`, then start it again and migrate. |
+| `503` with `Login is not configured` from `/auth` or `/me` | `JWT_SECRET` is missing, or shorter than 32 characters, in `api/.env`. Add it (see Login secret) and restart the API. |
+| `401 Sign in required` right after signing in | The token was made with a different `JWT_SECRET`, for example a local token sent to the live API, or a secret that changed. Sign in again against the same server. |
 | `.env` is missing | Run `cp .env.example .env` inside `api/`. Never commit `.env`. |
