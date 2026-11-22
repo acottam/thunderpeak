@@ -27,7 +27,7 @@ function toJsonInteger(value) {
 }
 
 // Record a check-in and let scored_visits determine whether it earns points.
-router.post('/', requireAuth, async (req, res) => {
+async function createVisitHandler(req, res) {
   const parkId = positiveInteger(req.body?.park_id);
   if (!parkId) return error(res, 400, 'park_id must be a positive integer');
 
@@ -49,6 +49,9 @@ router.post('/', requireAuth, async (req, res) => {
     console.error('Failed to create visit:', err.code || err.message);
     return error(res, 503, 'Visit unavailable');
   }
-});
+}
+
+router.post('/', requireAuth, createVisitHandler);
 
 module.exports = router;
+module.exports.handlers = { createVisitHandler };

@@ -38,7 +38,7 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // Return the signed-in user's visits, optionally filtered to one park.
-router.get('/visits', requireAuth, async (req, res) => {
+async function listUserVisits(req, res) {
   let parkId = null;
   if (req.query.park_id !== undefined) {
     parkId = positiveInteger(req.query.park_id);
@@ -55,10 +55,10 @@ router.get('/visits', requireAuth, async (req, res) => {
     console.error('Failed to fetch visits:', err.code || err.message);
     return error(res, 503, 'Visits unavailable');
   }
-});
+}
 
 // Summarize visit history and reward eligibility for a park.
-router.get('/parks/:park_id', requireAuth, async (req, res) => {
+async function getUserPark(req, res) {
   const parkId = positiveInteger(req.params.park_id);
   if (!parkId) return error(res, 400, 'Park id must be a positive integer');
 
@@ -77,10 +77,10 @@ router.get('/parks/:park_id', requireAuth, async (req, res) => {
     console.error('Failed to fetch park visit status:', err.code || err.message);
     return error(res, 503, 'Visit status unavailable');
   }
-});
+}
 
 // Return point and visit totals computed by user_scores.
-router.get('/score', requireAuth, async (req, res) => {
+async function getUserScoreHandler(req, res) {
   try {
     const score = await getUserScore(req.userId);
     return res.json({
@@ -91,6 +91,11 @@ router.get('/score', requireAuth, async (req, res) => {
     console.error('Failed to fetch score:', err.code || err.message);
     return error(res, 503, 'Score unavailable');
   }
-});
+}
+
+router.get('/visits', requireAuth, listUserVisits);
+router.get('/parks/:park_id', requireAuth, getUserPark);
+router.get('/score', requireAuth, getUserScoreHandler);
 
 module.exports = router;
+module.exports.handlers = { listUserVisits, getUserPark, getUserScoreHandler };
