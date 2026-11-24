@@ -30,24 +30,9 @@ CREATE TABLE IF NOT EXISTS parks (
   name VARCHAR(255) UNIQUE NOT NULL,
   description TEXT,
   location VARCHAR(100),
-  park_code VARCHAR(20) UNIQUE,
-  designation VARCHAR(100),
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  image_url TEXT,
-  point_value INTEGER NOT NULL DEFAULT 0 CHECK (point_value >= 0),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- Add the catalogue fields to existing databases without replacing park IDs.
-ALTER TABLE parks
-  ADD COLUMN IF NOT EXISTS park_code VARCHAR(20) UNIQUE,
-  ADD COLUMN IF NOT EXISTS designation VARCHAR(100),
-  ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
-  ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
-  ADD COLUMN IF NOT EXISTS image_url TEXT,
-  ADD COLUMN IF NOT EXISTS point_value INTEGER NOT NULL DEFAULT 0 CHECK (point_value >= 0);
 
 -- ============================================================================
 -- VISITS TABLE
