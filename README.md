@@ -96,6 +96,10 @@ Running it a second time on the same database fails on the seed step. To start o
 
 Check it works: open http://localhost:3000/health (API) and http://localhost:3000/health/db (database).
 
+#### Run API tests
+
+From the `api` directory, run `npm test`. The park route tests cover catalogue and detail responses, invalid or missing IDs, and database errors. They mock database calls, so PostgreSQL does not need to be running.
+
 #### Sprint 2 database update
 
 For an existing database already loaded with the Sprint 1 schema, run `npm run migrate:park-scoring` from `api/`. This adds the park catalogue fields and scoring views without rerunning the reference seed. It can be run again safely. New databases get the same update through `npm run migrate`.

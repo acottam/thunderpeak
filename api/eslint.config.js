@@ -20,7 +20,7 @@ module.exports = [
     },
   },
   {
-    files: ['__tests__/**/*.js'],
+    files: ['**/*.test.js', '**/*.spec.js', '__tests__/**/*.js'],
     languageOptions: {
       globals: { ...globals.jest },
     },

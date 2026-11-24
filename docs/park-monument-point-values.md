@@ -1,41 +1,31 @@
 # Park and Monument Point Values
 
-This document defines the Thunderpeak points awarded for a successfully verified visit to a National Park or National Monument.
+This schedule assigns catalogue points for a recorded park visit. The importer stores the result in `parks.point_value`; hiking, activities, and wildlife sightings are scored separately.
 
 ## Point schedule
 
-| Site classification | Points per verified visit |
-| --- | ---: |
-| Small National Park | 20 |
-| Medium National Park | 25 |
-| Large National Park | 50 |
-| Hardcore / difficult-to-reach National Park | 75 |
-| National Monument | 15 |
+| Difficulty | Points | Guidance |
+| --- | ---: | --- |
+| Easy | 20 | Accessible, quick-stop sites; usually National Memorials and National Historic Sites. |
+| Medium | 25 | Typical destination parks, including National Parks, National Seashores, and National Recreation Areas. |
+| Hard | 50 | Significant travel or access burden, including remote-state sites and standard vehicle-fee destinations. |
+| Difficult access | 75 | Access requires a ferry, seaplane, bush plane, four-wheel drive, no roads, or a permit. |
+| National Monument | 15 | Fixed value, regardless of size or access indicators. |
 
-## Classification rules
+## Assignment rules
 
-- National Park Service designation identifies National Parks and National Monuments in the catalogue.
-- Each National Park receives a Thunderpeak size classification of small, medium, or large. The team must define measurable size criteria before classifying parks.
-- The team may mark a National Park as hardcore / difficult to reach. This classification overrides its size classification and awards 75 points.
-- Every National Monument receives 15 points, regardless of size or access difficulty.
-- The National Park Service does not determine Thunderpeak size or difficulty classifications; those are app-managed values.
+- Start from the NPS designation: National Memorial and National Historic Site are Easy; National Park, National Seashore, and National Recreation Area are Medium. A National Monument receives its fixed 15 points. A National Monument in a major metro area is an Easy site by the guide, but the existing point scheme sets monuments to 15, so the fixed monument value takes precedence.
+- A National Monument’s fixed value is 15 even when other difficulty clues are present.
+- Bump sites in Alaska (AK), Hawaii (HI), American Samoa (AS), or the U.S. Virgin Islands (VI) up one tier, capped at Hard.
+- Directions or weather mentioning ferry, seaplane, bush plane, four-wheel drive/4WD, no roads, or permit required sets the value to 75.
+- Seasonal closures, snow, unpaved roads, or high elevation set at least Medium difficulty.
+- A free entrance (`cost: "0.00"`) is a weak Easy signal. A standard vehicle fee from $20 to $35 sets at least Hard. Access signals and remote location take priority over the free-site signal.
+- A National Monument inside a major metro area is considered Easy by the guide; it still receives the scheme’s fixed 15 points.
+- National Historical Parks remain excluded from the import.
 
 ## Awarding points
 
-- For Sprint 2, recorded check-ins are scored without a separate verification step.
-- Apply only one site-visit value per visit. Do not add the hardcore value to a park's size-based value.
-- A user may check in at a park multiple times. A check-in earns points only if it is the first at that park or is at least 12 months after the previous point-earning check-in there.
-- Calculate eligibility in visit-date order (and ID order for the same date). A backdated check-in can change later awards. Scores use the park's current point value, so correcting it also updates earlier calculated awards.
-- Hiking, camping, activities, and wildlife sightings are scored separately under their own rules.
-- Store the current classification and point value with the park record so the team can update them without changing the NPS catalogue data.
-
-## Examples
-
-- A verified visit to a large National Park earns 50 site-visit points.
-- A verified visit to a small National Park marked hardcore earns 75 points, not 20 + 75.
-- A verified visit to a National Monument earns 15 site-visit points.
-
-## Decisions still needed
-
-- Define objective size thresholds for small, medium, and large National Parks.
-- Agree on the criteria for hardcore / difficult-to-reach status and identify qualifying parks.
+- Check-ins are scored without a separate verification step. A user may check in at a park multiple times, but earns points only on the first visit and then once each rolling 12 months.
+- Calculate eligibility in visit-date order (and ID order for same-day visits). Backdated visits or corrected park values can change previously calculated awards.
+- Award one site-visit value per eligible visit. Hiking, camping, activities, and wildlife sightings are scored separately.
+- The importer refreshes the catalogue's point value using these rules.
