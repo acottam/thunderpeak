@@ -1,5 +1,7 @@
 jest.mock('../src/queries/visits', () => ({
   createVisit: jest.fn(),
+  createVisitHike: jest.fn(),
+  createVisitCamping: jest.fn(),
   getUserVisits: jest.fn(),
   getUserParkStatus: jest.fn(),
   getUserScore: jest.fn(),
@@ -11,7 +13,7 @@ const visitQueries = require('../src/queries/visits');
 const { requireAuth } = require('../src/middleware/auth');
 const visitsRouter = require('../src/routes/visits');
 const meRouter = require('../src/routes/me');
-const { createVisitHandler } = visitsRouter.handlers;
+const { createVisitHandler, createVisitHikeHandler, createVisitCampingHandler } = visitsRouter.handlers;
 const { listUserVisits, getUserPark, getUserScoreHandler } = meRouter.handlers;
 
 function createResponse() {
@@ -35,6 +37,8 @@ describe('visit routes', () => {
   test('protects each visit endpoint with requireAuth', () => {
     const endpoints = [
       [visitsRouter, 'post', '/'],
+      [visitsRouter, 'post', '/:id/hikes'],
+      [visitsRouter, 'post', '/:id/camping'],
       [meRouter, 'get', '/visits'],
       [meRouter, 'get', '/parks/:park_id'],
       [meRouter, 'get', '/score'],
@@ -94,6 +98,42 @@ describe('visit routes', () => {
     await createVisitHandler({ userId: 8, body: { park_id: 99 } }, res);
 
     expect(res.statusCode).toBe(404);
+  });
+
+  test('POST /visits/:id/hikes records a valid hike difficulty', async () => {
+    visitQueries.createVisitHike.mockResolvedValue({ id: 6, visit_id: 12, hike_difficulty_id: 2 });
+    const res = createResponse();
+    await createVisitHikeHandler({ userId: 8, params: { id: '12' }, body: { hike_difficulty_id: 2 } }, res);
+    expect(res.statusCode).toBe(201);
+    expect(res.body).toEqual({ id: 6, visit_id: 12, hike_difficulty_id: 2 });
+    expect(visitQueries.createVisitHike).toHaveBeenCalledWith(8, 12, 2);
+  });
+
+  test.each([
+    [{ id: 'bad', body: { hike_difficulty_id: 2 } }, 'visit id must be a positive integer'],
+    [{ id: '12', body: { hike_difficulty_id: 0 } }, 'hike_difficulty_id must be a positive integer'],
+  ])('POST /visits/:id/hikes validates input', async (input, message) => {
+    const res = createResponse();
+    await createVisitHikeHandler({ userId: 8, params: { id: input.id }, body: input.body }, res);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.message).toBe(message);
+    expect(visitQueries.createVisitHike).not.toHaveBeenCalled();
+  });
+
+  test('POST /visits/:id/camping records camping on the visit', async () => {
+    visitQueries.createVisitCamping.mockResolvedValue({ id: 7, visit_id: 12, activity_id: 2, activity: 'Camping' });
+    const res = createResponse();
+    await createVisitCampingHandler({ userId: 8, params: { id: '12' } }, res);
+    expect(res.statusCode).toBe(201);
+    expect(res.body.activity).toBe('Camping');
+    expect(visitQueries.createVisitCamping).toHaveBeenCalledWith(8, 12);
+  });
+
+  test('POST /visits/:id/camping validates the visit ID', async () => {
+    const res = createResponse();
+    await createVisitCampingHandler({ userId: 8, params: { id: '0' } }, res);
+    expect(res.statusCode).toBe(400);
+    expect(visitQueries.createVisitCamping).not.toHaveBeenCalled();
   });
 
   test('GET /me/visits filters by park and converts awarded points to a number', async () => {

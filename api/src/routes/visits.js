@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
-const { createVisit } = require('../queries/visits');
+const { createVisit, createVisitHike, createVisitCamping } = require('../queries/visits');
 
 const router = express.Router();
 const INVALID_VISIT_DATE = 'visited_date must be a date in the form YYYY-MM-DD and not in the future';
@@ -51,7 +51,41 @@ async function createVisitHandler(req, res) {
   }
 }
 
+async function createVisitHikeHandler(req, res) {
+  const visitId = positiveInteger(req.params.id);
+  if (!visitId) return error(res, 400, 'visit id must be a positive integer');
+  const difficultyId = positiveInteger(req.body?.hike_difficulty_id);
+  if (!difficultyId) return error(res, 400, 'hike_difficulty_id must be a positive integer');
+  try {
+    const hike = await createVisitHike(req.userId, visitId, difficultyId);
+    if (hike.notFound) return error(res, 404, 'Visit not found');
+    if (hike.invalidDifficulty) return error(res, 400, 'hike_difficulty_id is not valid');
+    if (hike.duplicate) return error(res, 409, 'This hike difficulty is already recorded for the visit');
+    return res.status(201).json(hike);
+  } catch (err) {
+    console.error('Failed to record hike:', err.code || err.message);
+    return error(res, 503, 'Hike unavailable');
+  }
+}
+
+async function createVisitCampingHandler(req, res) {
+  const visitId = positiveInteger(req.params.id);
+  if (!visitId) return error(res, 400, 'visit id must be a positive integer');
+  try {
+    const camping = await createVisitCamping(req.userId, visitId);
+    if (camping.notFound) return error(res, 404, 'Visit not found');
+    if (camping.unavailable) return error(res, 400, 'Camping is not available at this park');
+    if (camping.duplicate) return error(res, 409, 'Camping is already recorded for the visit');
+    return res.status(201).json(camping);
+  } catch (err) {
+    console.error('Failed to record camping:', err.code || err.message);
+    return error(res, 503, 'Camping unavailable');
+  }
+}
+
 router.post('/', requireAuth, createVisitHandler);
+router.post('/:id/hikes', requireAuth, createVisitHikeHandler);
+router.post('/:id/camping', requireAuth, createVisitCampingHandler);
 
 module.exports = router;
-module.exports.handlers = { createVisitHandler };
+module.exports.handlers = { createVisitHandler, createVisitHikeHandler, createVisitCampingHandler };
