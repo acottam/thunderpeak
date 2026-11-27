@@ -293,7 +293,7 @@ Details:
 No new tables or columns are needed.
 
 1. Add `UNIQUE (visit_id, activity_id)` to `visit_activities`. Remove duplicate rows first, if there are any.
-2. Add views `scored_hikes`, `scored_activities` and `scored_sightings`, each with one row per logged item and a `points_awarded` column, following the rules above.
+2. Add views `scored_hikes`, `scored_activities` and `scored_sightings`, each with one row per logged item and a `points_awarded` column, following the rules above. Each view also carries `id` (the logged item's id), `visit_id`, `user_id`, `park_id` and `visited_date`, plus `hike_difficulty_id`, `activity_id` or `animal_id`. `scored_sightings` also needs `earns_points` (boolean), which the sightings endpoint uses for `next_eligible_date`, the same way `scored_visits` does.
 3. Extend `user_scores` with `park_points`, `hike_points`, `activity_points` and `wildlife_points`, and make `total_points` their sum. Total each category in its own subquery before joining to `users`, so joins don't multiply points.
 4. Database tests for: a duplicate hike difficulty and duplicate activity on one visit, the same-day repeat rule, wildlife at the 12-month boundary, the same species at two parks, a backdated sighting, and rounding.
 
