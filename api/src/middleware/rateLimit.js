@@ -1,4 +1,5 @@
-const { rateLimit } = require('express-rate-limit');
+const { isIP } = require('node:net');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 function positiveInt(name, fallback) {
   const value = Number(process.env[name]);
@@ -11,6 +12,26 @@ function positiveInt(name, fallback) {
 const behindUnconfiguredProxy = Boolean(process.env.RENDER) && !positiveInt('TRUST_PROXY', 0);
 const enabled = !behindUnconfiguredProxy;
 
+// Render sits behind Cloudflare, which overwrites CF-Connecting-IP with the visitor's real IP.
+// With TRUST_PROXY=1 alone, req.ip is the Cloudflare edge address, which many visitors share.
+// CLIENT_IP_HEADER names a header the platform sets and visitors can't forge. Only set it where
+// that is true: anywhere else a visitor could send the header themselves and dodge the limit.
+// Leave it unset locally. A missing or invalid header value falls back to req.ip.
+const clientIpHeader = (process.env.CLIENT_IP_HEADER || '').trim().toLowerCase();
+
+function clientIp(req) {
+  if (clientIpHeader) {
+    const value = String(req.headers[clientIpHeader] || '').trim();
+    if (isIP(value)) return value;
+  }
+  return req.ip;
+}
+
+// IPv6 addresses are grouped by /56 so one visitor can't rotate through their own range.
+function keyGenerator(req) {
+  return ipKeyGenerator(clientIp(req));
+}
+
 function passThrough(req, res, next) {
   return next();
 }
@@ -21,6 +42,7 @@ function createLimiter({ limit, windowMs, skipSuccessfulRequests, message }) {
     windowMs,
     limit,
     skipSuccessfulRequests,
+    keyGenerator,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     handler: (req, res) => res.status(429).json({ status: 'error', message }),
@@ -43,4 +65,4 @@ const registerLimiter = createLimiter({
   message: 'Too many sign-up attempts. Try again later.',
 });
 
-module.exports = { loginLimiter, registerLimiter, enabled, positiveInt };
+module.exports = { loginLimiter, registerLimiter, enabled, positiveInt, clientIp };

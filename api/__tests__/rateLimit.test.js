@@ -8,7 +8,7 @@ process.env.JWT_SECRET = 'test-secret-that-is-at-least-thirty-two-characters-lon
 // Limits and proxy settings are read when the modules load, so each test builds a fresh app
 // (with a fresh, empty limiter) under its own settings, then puts the environment back.
 function loadApp(extraEnv = {}) {
-  const settings = { LOGIN_RATE_LIMIT_MAX: '3', REGISTER_RATE_LIMIT_MAX: '2', RENDER: '', TRUST_PROXY: '', ...extraEnv };
+  const settings = { LOGIN_RATE_LIMIT_MAX: '3', REGISTER_RATE_LIMIT_MAX: '2', RENDER: '', TRUST_PROXY: '', CLIENT_IP_HEADER: '', ...extraEnv };
   const saved = {};
   Object.keys(settings).forEach((key) => { saved[key] = process.env[key]; });
   Object.assign(process.env, settings);
@@ -100,5 +100,47 @@ describe('scope and safety', () => {
     const from = (spoof) => request(app).post('/auth/login').set('X-Forwarded-For', `${spoof}, 203.0.113.7`).send(bad);
     for (let i = 0; i < 3; i += 1) await from(`198.51.100.${i}`);
     expect((await from('198.51.100.99')).status).toBe(429);
+  });
+
+  test('with CLIENT_IP_HEADER set, visitors behind the same proxy edge get separate limits', async () => {
+    const { app, pool } = loadApp({ RENDER: 'true', TRUST_PROXY: '1', CLIENT_IP_HEADER: 'CF-Connecting-IP' });
+    pool.query.mockResolvedValue({ rows: [] });
+    // Both visitors arrive from the same Cloudflare edge address.
+    const from = (ip) => request(app).post('/auth/login')
+      .set('X-Forwarded-For', '172.70.1.1').set('CF-Connecting-IP', ip).send(bad);
+    for (let i = 0; i < 3; i += 1) await from('203.0.113.7');
+    expect((await from('203.0.113.7')).status).toBe(429);
+    expect((await from('203.0.113.8')).status).toBe(401);
+  });
+
+  test('IPv6 visitors are grouped by /56, so rotating addresses in one range does not reset the limit', async () => {
+    const { app, pool } = loadApp({ RENDER: 'true', TRUST_PROXY: '1', CLIENT_IP_HEADER: 'cf-connecting-ip' });
+    pool.query.mockResolvedValue({ rows: [] });
+    const from = (ip) => request(app).post('/auth/login').set('CF-Connecting-IP', ip).send(bad);
+    for (let i = 0; i < 3; i += 1) await from(`2001:db8:abcd:120${i}::1`);
+    expect((await from('2001:db8:abcd:12ff::1')).status).toBe(429);
+    expect((await from('2001:db8:abcd:1300::1')).status).toBe(401); // a different /56
+  });
+
+  test('without CLIENT_IP_HEADER the header is ignored, so it cannot be used to dodge the limit', async () => {
+    const { app, pool } = loadApp({ RENDER: 'true', TRUST_PROXY: '1' });
+    pool.query.mockResolvedValue({ rows: [] });
+    const from = (spoof) => request(app).post('/auth/login')
+      .set('X-Forwarded-For', '203.0.113.7').set('CF-Connecting-IP', spoof).send(bad);
+    for (let i = 0; i < 3; i += 1) await from(`198.51.100.${i}`);
+    expect((await from('198.51.100.99')).status).toBe(429);
+  });
+
+  test('a missing or invalid client IP header falls back to the proxy address', async () => {
+    const { app, pool } = loadApp({ RENDER: 'true', TRUST_PROXY: '1', CLIENT_IP_HEADER: 'cf-connecting-ip' });
+    pool.query.mockResolvedValue({ rows: [] });
+    const from = (value) => {
+      const req = request(app).post('/auth/login').set('X-Forwarded-For', '203.0.113.7');
+      return (value === undefined ? req : req.set('CF-Connecting-IP', value)).send(bad);
+    };
+    await from(undefined);
+    await from('not-an-ip');
+    await from('');
+    expect((await from('999.1.1.1')).status).toBe(429);
   });
 });

@@ -131,7 +131,7 @@ A token holds only the user id (`sub`) and an expiry (`exp`). The phone keeps it
 
 ### Limits (Live)
 
-Sign-in allows 10 failed attempts per IP per 15 minutes (a correct password never counts). Sign-up allows 10 attempts per IP per hour. This is off on Render until `TRUST_PROXY` is set, so the live API may not return 429 yet.
+Sign-in allows 10 failed attempts per IP per 15 minutes (a correct password never counts). Sign-up allows 10 attempts per IP per hour. Limits are per visitor IP. On Render that IP comes from Cloudflare's `CF-Connecting-IP` header (`CLIENT_IP_HEADER`), and IPv6 addresses are grouped by /56.
 
 ## Visits (Proposed, owner: Godwin)
 
