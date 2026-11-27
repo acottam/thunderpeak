@@ -159,6 +159,14 @@ Scan the QR code with the Expo Go app on your phone, or press `w` to open it in 
 iOS Simulator needs Xcode and Android Emulator needs Android Studio, but neither is required.
 The app uses the live API (https://thunderpeak-api.onrender.com) by default, because a phone cannot reach `localhost`. To use your own API instead, start Expo with your computer's local network address, for example `EXPO_PUBLIC_API_URL=http://192.168.1.20:3000 npm start` (phone and computer on the same Wi-Fi).
 
+## Web Version
+
+The app also runs in a browser at https://thunderpeak-web.onrender.com.
+
+- It is a Render Static Site built from `mobile/` (`npx expo export --platform web`) and uses the live API.
+- Every merge to `main` that changes `mobile/` redeploys it.
+- Sign-in is saved in the browser's local storage, so a reload stays signed in until the 7-day token expires or you sign out. On a shared computer, sign out when you finish.
+
 ## Live API
 
 The API runs on Render at https://thunderpeak-api.onrender.com (check `/health` and `/health/db`).

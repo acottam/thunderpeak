@@ -127,7 +127,7 @@ Needs a token. Returns the signed-in user: `{ "id": 1, "username": "ada" }`.
 
 ### Tokens
 
-A token holds only the user id (`sub`) and an expiry (`exp`). The phone keeps it with `expo-secure-store` and sends it on every signed-in request. A 401 on a signed-in request means the token is expired or invalid, so send the person to the login screen.
+A token holds only the user id (`sub`) and an expiry (`exp`). The phone keeps it with `expo-secure-store`, the web version keeps it in the browser's `localStorage`, and both send it on every signed-in request. A 401 on a signed-in request means the token is expired or invalid, so send the person to the login screen.
 
 ### Limits (Live)
 
