@@ -170,7 +170,7 @@ Endpoint reference with request and response examples: [docs/api.md](docs/api.md
 - The team database is hosted on Render and is not open to outside connections. If you need access, ask Adam in the private Teams channel. Never post a connection string anywhere public.
 - Render's free database expires on 2026-12-14.
 - Login needs a `JWT_SECRET` environment variable on the Render service. Without it the API still runs, but `/auth` and `/me` answer 503.
-- Login rate limiting (10 failed sign-ins per IP per 15 minutes) needs `TRUST_PROXY` on Render, the number of proxies in front of the app. Until it is set, the limiter is off and the API logs a warning. To check a value: set `TRUST_PROXY=1`, send 11 wrong sign-ins from your computer (you should get 429), then try one from a phone on cellular data. If the phone also gets 429, everyone shares one bucket, so try `TRUST_PROXY=2`.
+- Login rate limiting (10 failed sign-ins per IP per 15 minutes) needs two settings on Render: `TRUST_PROXY=1` and `CLIENT_IP_HEADER=cf-connecting-ip`. Render sits behind Cloudflare, so with `TRUST_PROXY` alone every visitor coming through the same Cloudflare edge shares one limit. Cloudflare sets `CF-Connecting-IP` to the visitor's real IP and visitors can't forge it, so the limit applies per visitor. Without `TRUST_PROXY` the limiter is off and the API logs a warning. Never set `CLIENT_IP_HEADER` locally or on a host without Cloudflare, because there anyone could send the header themselves.
 
 ## Team Workflow
 
