@@ -8,7 +8,7 @@ This is the contract the mobile app and the API build against. Each endpoint is 
 | Mark | Meaning |
 |---|---|
 | **Live** | Merged and working. The examples below are real responses. |
-| **Proposed** | Not built. The shape is a proposal for Godwin (owner) and Aruzhan to confirm before building. |
+| **Proposed** | Not built. The shape is the agreed contract to build against. Raise changes in Teams or in the pull request before building. |
 
 ## Conventions
 
@@ -66,9 +66,9 @@ Returns one park, using the same fields. Errors:
 | 404 | `Park not found` |
 | 503 | `Park catalogue unavailable` |
 
-### Planned fields on every park (Proposed)
+### Catalogue fields on every park (Live)
 
-These come from Arlin's `ALTER TABLE parks` change, then Godwin's import fills them. They are added to the same objects, and nothing above is removed.
+These come from Arlin's `ALTER TABLE parks` change, and Godwin's import fills them. They are included in the same objects.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -78,7 +78,6 @@ These come from Arlin's `ALTER TABLE parks` change, then Godwin's import fills t
 | `image_url` | string or null | Photo from NPS |
 | `point_value` | integer | Points for an eligible check-in (see `docs/park-monument-point-values.md`) |
 
-Until these exist, the app must treat them as optional and keep working without them.
 
 ## Accounts (Live)
 
@@ -133,7 +132,7 @@ A token holds only the user id (`sub`) and an expiry (`exp`). The phone keeps it
 
 Sign-in allows 10 failed attempts per IP per 15 minutes (a correct password never counts). Sign-up allows 10 attempts per IP per hour. This is off on Render until `TRUST_PROXY` is set, so the live API may not return 429 yet.
 
-## Visits (Proposed, owner: Godwin)
+## Visits (Live, owner: Godwin)
 
 Updated Nov 21 at Aruzhan's request for the park screen: `park_name` and `next_eligible_date` on `POST /visits`, the `park_id` filter on `GET /me/visits`, and `GET /me/parks/:park_id`.
 
@@ -243,7 +242,7 @@ Both fields are `0` for a new account.
 
 ### Scoring queries for the visit API and leaderboard
 
-The database migration adds two views: `scored_visits` calculates an award for each check-in, and `user_scores` totals all park awards and counts all check-ins, including repeats. All recorded check-ins count for now; there is no verification status yet. Hiking, camping, activities and wildlife are not included in this sprint's score.
+The database migration adds two views: `scored_visits` calculates an award for each check-in, and `user_scores` totals all park awards and counts all check-ins, including repeats. All recorded check-ins count for now; there is no verification status yet. Sprint 2's score counts park check-ins only. Sprint 3 adds hikes, activities and wildlife (see the next section).
 
 For one user, use the signed-in user ID as a parameter:
 
@@ -265,6 +264,123 @@ ORDER BY total_points DESC, user_id;
 PostgreSQL returns these totals and counts as `bigint`; the Node PostgreSQL driver returns them as strings by default. The API should handle conversion safely when forming its JSON response.
 
 The same applies to `latitude` and `longitude` (PostgreSQL `NUMERIC`), which the driver also returns as strings. The API returns all of these as JSON numbers, which is what the mobile app's types expect. Dates are returned as `YYYY-MM-DD` strings.
+
+## Hikes, Activities and Wildlife (Proposed, Sprint 3)
+
+Agreed Nov 27. Owners: Arlin (migration 002 and scoring views), Godwin (hike and activity endpoints), Adam (animal and sighting endpoints) and Aruzhan (screens).
+
+A check-in comes first. Hikes, activities and wildlife sightings are then logged against that visit, and the score adds them up.
+
+### Scoring rules
+
+| Item | Points | Limit | Source |
+|---|---|---|---|
+| Hike | The difficulty's `base_points`: Easy 5, Moderate 10, Hard 20 | One hike per difficulty per visit | `hike_difficulties`, unique on `visit_hikes (visit_id, hike_difficulty_id)` |
+| Activity, including camping | The activity's `base_points`, for example Camping 8, Photography 3 | One of each activity per visit | `activities`, new unique on `visit_activities (visit_id, activity_id)` |
+| Wildlife sighting | `ROUND(base_points × rarity_multiplier)`, for example Grizzly Bear 10 × 3.5 = 35, Bald Eagle 8 × 2.5 = 20 | One award per user, park and species in a rolling 12 months | `animals`, unique on `visit_animal_sightings (visit_id, animal_id)` |
+
+Details:
+
+- **Camping** is the regular `Camping` activity. Nights are not recorded, so camping scores 8 points per visit however long the stay.
+- **Same-day repeats.** A person can check in at the same park more than once on the same date. Hikes and activities score once per user, park and visit date, so logging a Hard hike on two check-ins that day earns 20 points once. The first by visit ID earns the points, and the rest are saved with 0.
+- **Wildlife** follows the park check-in rule. The first sighting of a species at a park earns points, and the next award for that species at that park must be at least 12 months later. Sightings are ordered by their visit's `visited_date`, then by sighting ID. A sighting uses its visit's date, so there is no separate sighting date. The same species at a different park scores separately.
+- **Park points don't matter.** Hikes, activities and sightings can earn points on a check-in that scored 0 park points (a repeat visit within 12 months).
+- **Any activity at any park.** `parks_activities` is empty, so Sprint 3 does not check whether a park offers an activity. Add that check once the table is filled.
+- **Calculated, not stored.** Like `scored_visits`, awards come from database views, so a backdated visit or a corrected point value can change earlier awards. The `points_awarded` returned by a `POST` is the value at that moment.
+
+### Database changes (migration 002, owner: Arlin)
+
+No new tables or columns are needed.
+
+1. Add `UNIQUE (visit_id, activity_id)` to `visit_activities`. Remove duplicate rows first, if there are any.
+2. Add views `scored_hikes`, `scored_activities` and `scored_sightings`, each with one row per logged item and a `points_awarded` column, following the rules above. Each view also carries `id` (the logged item's id), `visit_id`, `user_id`, `park_id` and `visited_date`, plus `hike_difficulty_id`, `activity_id` or `animal_id`. `scored_sightings` also needs `earns_points` (boolean), which the sightings endpoint uses for `next_eligible_date`, the same way `scored_visits` does.
+3. Extend `user_scores` with `park_points`, `hike_points`, `activity_points` and `wildlife_points`, and make `total_points` their sum. Total each category in its own subquery before joining to `users`, so joins don't multiply points.
+4. Database tests for: a duplicate hike difficulty and duplicate activity on one visit, the same-day repeat rule, wildlife at the 12-month boundary, the same species at two parks, a backdated sighting, and rounding.
+
+### `GET /hike-difficulties`, `GET /activities`, `GET /animals`
+
+Public lists for the Log Activity and Wildlife screens, sorted by `base_points` then name (animals by `point_value` descending, then name).
+
+```json
+[{ "id": 3, "name": "Hard", "base_points": 20, "description": "Challenging trail, significant elevation and/or distance" }]
+```
+
+```json
+[{ "id": 2, "name": "Camping", "base_points": 8, "description": "Overnight camping adventure" }]
+```
+
+```json
+[{ "id": 2, "name": "Grizzly Bear", "base_points": 10, "rarity_multiplier": 3.5, "point_value": 35, "description": "Endangered apex predator, thrilling sighting" }]
+```
+
+`rarity_multiplier` is a JSON number. `point_value` is the rounded award for a first sighting.
+
+### Logging against a visit
+
+All of these need a token. The visit must belong to the signed-in user. Someone else's visit returns 404, the same as a visit that doesn't exist.
+
+| Endpoint | Body | Owner |
+|---|---|---|
+| `POST /visits/:id/hikes` | `{ "hike_difficulty_id": 3 }` | Godwin |
+| `POST /visits/:id/activities` | `{ "activity_id": 2 }` | Godwin |
+| `POST /visits/:id/sightings` | `{ "animal_id": 2 }` | Adam |
+
+Success is 201 with the saved item and its award. The sighting also returns `next_eligible_date`, the first date this species can earn points again at this park.
+
+```json
+{ "id": 31, "visit_id": 12, "hike_difficulty_id": 3, "name": "Hard", "points_awarded": 20 }
+```
+
+```json
+{ "id": 9, "visit_id": 12, "activity_id": 2, "name": "Camping", "points_awarded": 8 }
+```
+
+```json
+{ "id": 44, "visit_id": 12, "animal_id": 2, "name": "Grizzly Bear", "points_awarded": 35, "next_eligible_date": "2027-11-21" }
+```
+
+| Status | Message |
+|---|---|
+| 400 | `Visit id must be a positive integer`, or `hike_difficulty_id must be a positive integer` (likewise `activity_id`, `animal_id`) |
+| 401 | `Sign in required` |
+| 404 | `Visit not found`, or `Hike difficulty not found` (likewise `Activity not found`, `Animal not found`) |
+| 409 | `That hike difficulty is already logged for this visit` (likewise `That activity is already logged for this visit`, `That animal is already logged for this visit`) |
+
+Removing a logged item is not in Sprint 3.
+
+### `GET /visits/:id`
+
+Needs a token. Returns one of the signed-in user's visits with everything logged against it, for the visit screen. 404 `Visit not found` for another user's visit.
+
+```json
+{
+  "id": 12,
+  "park_id": 1,
+  "park_name": "Yellowstone National Park",
+  "visited_date": "2026-11-21",
+  "points_awarded": 50,
+  "hikes": [{ "id": 31, "hike_difficulty_id": 3, "name": "Hard", "points_awarded": 20 }],
+  "activities": [{ "id": 9, "activity_id": 2, "name": "Camping", "points_awarded": 8 }],
+  "sightings": [{ "id": 44, "animal_id": 2, "name": "Grizzly Bear", "points_awarded": 35 }],
+  "total_points": 113
+}
+```
+
+`points_awarded` at the top is the park check-in award. `total_points` adds the park award and every item on the visit.
+
+### `GET /me/score` (Sprint 3 change)
+
+Adds a breakdown. The existing fields keep their names, so the current app keeps working.
+
+```json
+{
+  "total_points": 113,
+  "visit_count": 1,
+  "breakdown": { "parks": 50, "hikes": 20, "activities": 8, "wildlife": 35 }
+}
+```
+
+The leaderboard query on `user_scores` stays the same and ranks on the new `total_points`.
 
 ## Try it
 
