@@ -2,14 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { ApiError, apiFetch } from '@/api/client';
 import { clearSession, loadSession, saveSession, type Session, type User } from '@/auth/sessionStore';
 
+// For signed-in requests (visits, score). A 401 signs the person out (docs/api.md, Tokens).
+export type AuthFetch = <T>(path: string, options?: { method?: 'GET' | 'POST'; body?: unknown }) => Promise<T>;
+
 type AuthValue = {
   status: 'loading' | 'signedOut' | 'signedIn';
   user: User | null;
   signIn: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  // For signed-in requests (visits, score). A 401 signs the person out (docs/api.md, Tokens).
-  authFetch: <T>(path: string, options?: { method?: 'GET' | 'POST'; body?: unknown }) => Promise<T>;
+  authFetch: AuthFetch;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);

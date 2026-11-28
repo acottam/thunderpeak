@@ -1,9 +1,9 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '@/api/client';
 import { bannerColor, designationOf, fetchPark, formatStates, getCachedPark, pointsFor, shortName } from '@/api/parks';
-import { useAuth } from '@/auth/AuthContext';
+import { CheckInCard } from '@/components/CheckInCard';
 import { LoadState } from '@/components/LoadState';
 import { PointsBadge } from '@/components/PointsBadge';
 import { colors, radius, spacing } from '@/theme';
@@ -12,7 +12,6 @@ import type { Park } from '@/types/park';
 export default function ParkDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const parkId = Number(id);
-  const { status } = useAuth();
   // Opened from the catalogue: use the park we already have. Opened by link: fetch it.
   const [park, setPark] = useState<Park | null>(() => getCachedPark(parkId) ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -56,9 +55,8 @@ export default function ParkDetailScreen() {
   }
 
   const points = pointsFor(park);
-  // Check-in, logging and scoring are later sprint tasks; buttons are placeholders.
-  const comingSoon = (what: string) => Alert.alert(what, 'Coming in a later sprint.');
-  const onCheckIn = () => (status === 'signedIn' ? comingSoon('Check in') : router.push('/login'));
+  // Logging activities and sightings comes in the next PR; these buttons are placeholders.
+  const comingSoon = (what: string) => Alert.alert(what, 'Coming soon.');
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -89,15 +87,7 @@ export default function ParkDetailScreen() {
         </View>
       </View>
 
-      <Pressable
-        style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.8 }]}
-        onPress={onCheckIn}
-        accessibilityRole="button"
-      >
-        <Text style={styles.primaryButtonText}>
-          {status === 'signedIn' ? 'Check in at this park' : 'Sign in to check in'}
-        </Text>
-      </Pressable>
+      <CheckInCard parkId={park.id} parkPoints={points} />
 
       {park.description ? (
         <View style={styles.section}>
@@ -129,13 +119,6 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
   body: { fontSize: 15, lineHeight: 22, color: colors.text },
   muted: { fontSize: 14, color: colors.textMuted },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-  },
-  primaryButtonText: { color: colors.primaryText, fontSize: 16, fontWeight: '700' },
   secondaryRow: { flexDirection: 'row', gap: spacing.md },
   secondaryButton: {
     flex: 1,

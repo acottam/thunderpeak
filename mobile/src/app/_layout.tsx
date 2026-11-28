@@ -7,10 +7,15 @@ import { colors } from '@/theme';
 function AccountButton() {
   const { status, user } = useAuth();
   if (status === 'loading') return null;
-  const label = status === 'signedIn' && user ? user.username : 'Sign in';
+  const signedIn = status === 'signedIn' && user;
   return (
-    <Pressable onPress={() => router.push('/login')} hitSlop={8} accessibilityRole="button" accessibilityLabel={status === 'signedIn' ? `Account: ${label}` : 'Sign in'}>
-      <Text style={{ color: colors.primaryText, fontWeight: '700' }}>{label}</Text>
+    <Pressable
+      onPress={() => router.push(signedIn ? '/score' : '/login')}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={signedIn ? `My score, signed in as ${user.username}` : 'Sign in'}
+    >
+      <Text style={{ color: colors.primaryText, fontWeight: '700' }}>{signedIn ? 'My score' : 'Sign in'}</Text>
     </Pressable>
   );
 }
@@ -29,7 +34,8 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" options={{ title: 'Park Catalog', headerRight: () => <AccountButton /> }} />
         <Stack.Screen name="parks/[id]" options={{ title: 'Park' }} />
-        <Stack.Screen name="login" options={{ title: 'Sign in', presentation: 'modal' }} />
+        <Stack.Screen name="score" options={{ title: 'My Score' }} />
+        <Stack.Screen name="login"options={{ title: 'Sign in', presentation: 'modal' }} />
       </Stack>
     </AuthProvider>
   );
