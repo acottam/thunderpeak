@@ -42,10 +42,18 @@ SELECT a.id, a.user_id, a.park_id, a.visited_date, a.earns_points,
 FROM awards a
 JOIN parks p ON p.id = a.park_id;
 
+-- Migration 002 owns the expanded view once it has been applied.
+DO $$
+BEGIN
+IF to_regclass('scored_hikes') IS NULL THEN
+EXECUTE $view$
 CREATE OR REPLACE VIEW user_scores AS
 SELECT u.id AS user_id, u.username,
   COUNT(v.id) AS visit_count,
   COALESCE(SUM(v.points_awarded), 0) AS total_points
 FROM users u
 LEFT JOIN scored_visits v ON v.user_id = u.id
-GROUP BY u.id, u.username;
+GROUP BY u.id, u.username
+$view$;
+END IF;
+END $$;

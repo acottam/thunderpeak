@@ -8,9 +8,10 @@
     "dev": "node --watch src/server.js",
     "migrate": "node migrate.js",
     "migrate:park-scoring": "node scripts/apply-park-scoring.js",
+    "migrate:activity-scoring": "node scripts/apply-activity-scoring.js",
     "import:parks": "node scripts/import-parks.js",
     "test": "jest",
-    "test:database": "node --test tests/score.database.js",
+    "test:database": "node --test tests/score.database.js tests/activity-score.database.js",
     "lint": "eslint ."
   },
   "keywords": [],

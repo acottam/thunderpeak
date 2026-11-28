@@ -29,6 +29,7 @@ async function runMigration() {
     const schemaPath = path.join(__dirname, 'schema.sql');
     const seedPath = path.join(__dirname, 'seed.sql');
     const parkScoringPath = path.join(__dirname, 'migrations', '001-park-scoring.sql');
+    const activityScoringPath = path.join(__dirname, 'migrations', '002-activity-scoring.sql');
 
     if (!fs.existsSync(schemaPath)) {
       throw new Error(`Schema file not found: ${schemaPath}`);
@@ -40,11 +41,13 @@ async function runMigration() {
     const schema = fs.readFileSync(schemaPath, 'utf-8');
     const seed = fs.readFileSync(seedPath, 'utf-8');
     const parkScoring = fs.readFileSync(parkScoringPath, 'utf-8');
+    const activityScoring = fs.readFileSync(activityScoringPath, 'utf-8');
 
     // Execute schema
     console.log('\nRunning schema migration...');
     await pool.query(schema);
     await pool.query(parkScoring);
+    await pool.query(activityScoring);
     console.log('Schema created successfully');
 
     // Execute seed data

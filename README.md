@@ -122,6 +122,23 @@ cd api
 npm run test:database
 ```
 
+#### Sprint 3 database update
+
+For an existing database with the Sprint 2 migration, run `npm run migrate:activity-scoring` from `api/`. This creates the hike, activity and wildlife scoring views and adds a breakdown to `user_scores`. It can be run again safely. New databases get both scoring migrations through `npm run migrate`.
+
+The update requires each activity to appear at most once per visit. If duplicate rows already exist, the migration fails and rolls back; review the duplicates before deciding how to resolve them:
+
+```sql
+SELECT visit_id, activity_id, COUNT(*)
+FROM visit_activities
+GROUP BY visit_id, activity_id
+HAVING COUNT(*) > 1;
+```
+
+The existing reference seed already supplies hike difficulties, activities and animals. Do not rerun it on an existing database: its inserts are not idempotent. Verify the reference data before using scoring. Back up the shared database and coordinate with the team before applying a migration there.
+
+Hikes and activities score once per user, park, date and difficulty or activity, even if there are multiple check-ins that day. Wildlife scores once per user, park and species per rolling 12 months. Awards are calculated from the current reference values and visit dates, so corrections or backdated visits can change previous scores. Each category is aggregated separately in `user_scores`.
+
 #### Login secret
 
 Sign-up and sign-in need a secret in `api/.env` to sign login tokens. `.env.example` leaves it empty, so set your own:
