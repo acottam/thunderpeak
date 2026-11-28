@@ -1,6 +1,8 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
-const { createVisit, createVisitHike, createVisitCamping } = require('../queries/visits');
+const {
+  createVisit, createVisitHike, createVisitActivity, getVisitDetails,
+} = require('../queries/visits');
 
 const router = express.Router();
 const INVALID_VISIT_DATE = 'visited_date must be a date in the form YYYY-MM-DD and not in the future';
@@ -23,6 +25,12 @@ function validDate(value) {
 function toJsonInteger(value) {
   const number = Number(value);
   if (!Number.isSafeInteger(number)) throw new Error('Scored visit value is outside the safe integer range');
+  return number;
+}
+
+function toJsonNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) throw new Error('Visit points are not a finite number');
   return number;
 }
 
@@ -68,24 +76,48 @@ async function createVisitHikeHandler(req, res) {
   }
 }
 
-async function createVisitCampingHandler(req, res) {
+async function createVisitActivityHandler(req, res) {
+  const visitId = positiveInteger(req.params.id);
+  if (!visitId) return error(res, 400, 'visit id must be a positive integer');
+  const activityId = positiveInteger(req.body?.activity_id);
+  if (!activityId) return error(res, 400, 'activity_id must be a positive integer');
+  try {
+    const activity = await createVisitActivity(req.userId, visitId, activityId);
+    if (activity.notFound) return error(res, 404, 'Visit not found');
+    if (activity.invalidActivity) return error(res, 400, 'activity_id is not valid');
+    if (activity.unavailable) return error(res, 400, 'Activity is not available at this park');
+    if (activity.duplicate) return error(res, 409, 'This activity is already recorded for the visit');
+    return res.status(201).json(activity);
+  } catch (err) {
+    console.error('Failed to record activity:', err.code || err.message);
+    return error(res, 503, 'Activity unavailable');
+  }
+}
+
+async function getVisitHandler(req, res) {
   const visitId = positiveInteger(req.params.id);
   if (!visitId) return error(res, 400, 'visit id must be a positive integer');
   try {
-    const camping = await createVisitCamping(req.userId, visitId);
-    if (camping.notFound) return error(res, 404, 'Visit not found');
-    if (camping.unavailable) return error(res, 400, 'Camping is not available at this park');
-    if (camping.duplicate) return error(res, 409, 'Camping is already recorded for the visit');
-    return res.status(201).json(camping);
+    const visit = await getVisitDetails(req.userId, visitId);
+    if (!visit) return error(res, 404, 'Visit not found');
+    return res.json({
+      ...visit,
+      visit_points: toJsonNumber(visit.visit_points),
+      activity_points: toJsonNumber(visit.activity_points),
+      total_points: toJsonNumber(visit.total_points),
+    });
   } catch (err) {
-    console.error('Failed to record camping:', err.code || err.message);
-    return error(res, 503, 'Camping unavailable');
+    console.error('Failed to fetch visit:', err.code || err.message);
+    return error(res, 503, 'Visit unavailable');
   }
 }
 
 router.post('/', requireAuth, createVisitHandler);
+router.get('/:id', requireAuth, getVisitHandler);
 router.post('/:id/hikes', requireAuth, createVisitHikeHandler);
-router.post('/:id/camping', requireAuth, createVisitCampingHandler);
+router.post('/:id/activities', requireAuth, createVisitActivityHandler);
 
 module.exports = router;
-module.exports.handlers = { createVisitHandler, createVisitHikeHandler, createVisitCampingHandler };
+module.exports.handlers = {
+  createVisitHandler, createVisitHikeHandler, createVisitActivityHandler, getVisitHandler,
+};

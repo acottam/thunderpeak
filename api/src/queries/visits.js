@@ -87,8 +87,8 @@ async function createVisitHike(userId, visitId, difficultyId) {
   }
 }
 
-// Camping is stored as the Camping activity and must be available at the visit's park.
-async function createVisitCamping(userId, visitId) {
+// Record a park activity for a visit owned by the signed-in user.
+async function createVisitActivity(userId, visitId, activityId) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -100,33 +100,83 @@ async function createVisitCamping(userId, visitId) {
       await client.query('ROLLBACK');
       return { notFound: true };
     }
-    const camping = await client.query(
-      `SELECT a.id FROM activities a
+    const activity = await client.query(
+      `SELECT a.id, a.name, a.base_points FROM activities a
        JOIN parks_activities pa ON pa.activity_id = a.id
-       WHERE a.name = 'Camping' AND pa.park_id = $1`, [visit.rows[0].park_id],
+       WHERE a.id = $1 AND pa.park_id = $2`, [activityId, visit.rows[0].park_id],
     );
-    if (!camping.rows[0]) {
+    if (!activity.rows[0]) {
+      const exists = await client.query('SELECT 1 FROM activities WHERE id = $1', [activityId]);
       await client.query('ROLLBACK');
-      return { unavailable: true };
+      return exists.rows[0] ? { unavailable: true } : { invalidActivity: true };
     }
+
+    // Serialize inserts for this visit/activity pair because visit_activities has no unique key.
+    await client.query('SELECT pg_advisory_xact_lock($1::int, $2::int)', [visitId, activityId]);
     const inserted = await client.query(
       `INSERT INTO visit_activities (visit_id, activity_id)
        SELECT $1, $2 WHERE NOT EXISTS (
          SELECT 1 FROM visit_activities WHERE visit_id = $1 AND activity_id = $2
-       ) RETURNING id`, [visitId, camping.rows[0].id],
+       ) RETURNING id`, [visitId, activityId],
     );
     if (!inserted.rows[0]) {
       await client.query('ROLLBACK');
       return { duplicate: true };
     }
     await client.query('COMMIT');
-    return { id: inserted.rows[0].id, visit_id: visitId, activity_id: camping.rows[0].id, activity: 'Camping' };
+    return {
+      id: inserted.rows[0].id,
+      visit_id: visitId,
+      activity_id: activityId,
+      activity_name: activity.rows[0].name,
+      points: activity.rows[0].base_points,
+    };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
   } finally {
     client.release();
   }
+}
+
+// Return one visit with its recorded activities and the point contribution of each.
+async function getVisitDetails(userId, visitId) {
+  const result = await pool.query(
+    `WITH visit AS (
+       SELECT sv.id, sv.park_id, p.name AS park_name, sv.visited_date,
+              sv.points_awarded AS visit_points
+       FROM scored_visits sv
+       JOIN parks p ON p.id = sv.park_id
+       WHERE sv.id = $1 AND sv.user_id = $2
+     ), events AS (
+       SELECT 'hike'::text AS type, hd.name AS name, hd.base_points AS points
+       FROM visit_hikes vh
+       JOIN hike_difficulties hd ON hd.id = vh.hike_difficulty_id
+       WHERE vh.visit_id = $1
+       UNION ALL
+       SELECT 'activity'::text, a.name, a.base_points::numeric
+       FROM visit_activities va
+       JOIN activities a ON a.id = va.activity_id
+       WHERE va.visit_id = $1
+       UNION ALL
+       SELECT 'wildlife'::text, a.name,
+              (a.base_points * a.rarity_multiplier)::numeric
+       FROM visit_animal_sightings vas
+       JOIN animals a ON a.id = vas.animal_id
+       WHERE vas.visit_id = $1
+     ), event_summary AS (
+       SELECT COALESCE(json_agg(json_build_object(
+                'type', type, 'name', name, 'points', points
+              ) ORDER BY type, name), '[]'::json) AS activities,
+              COALESCE(sum(points), 0) AS activity_points
+       FROM events
+     )
+     SELECT visit.*, event_summary.activities, event_summary.activity_points,
+            visit.visit_points + event_summary.activity_points AS total_points
+     FROM visit CROSS JOIN event_summary`,
+    [visitId, userId],
+  );
+  return result.rows[0] || null;
 }
 
 // Return the signed-in user's scored check-ins, optionally filtered by park.
@@ -179,6 +229,6 @@ async function parkExists(parkId) {
 }
 
 module.exports = {
-  createVisit, createVisitHike, createVisitCamping,
+  createVisit, createVisitHike, createVisitActivity, getVisitDetails,
   getUserVisits, getUserParkStatus, getUserScore, parkExists,
 };
