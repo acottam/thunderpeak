@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const { createVisit } = require('../queries/visits');
+const { createSighting } = require('../queries/wildlife');
 
 const router = express.Router();
 const INVALID_VISIT_DATE = 'visited_date must be a date in the form YYYY-MM-DD and not in the future';
@@ -51,7 +52,32 @@ async function createVisitHandler(req, res) {
   }
 }
 
+// Log a wildlife sighting on one of the signed-in user's visits (docs/api.md, Logging against a visit).
+async function createSightingHandler(req, res) {
+  const visitId = positiveInteger(req.params.id);
+  if (!visitId) return error(res, 400, 'Visit id must be a positive integer');
+
+  const animalId = positiveInteger(req.body?.animal_id);
+  if (!animalId) return error(res, 400, 'animal_id must be a positive integer');
+
+  try {
+    const sighting = await createSighting(req.userId, visitId, animalId);
+    if (sighting.visitNotFound) return error(res, 404, 'Visit not found');
+    if (sighting.animalNotFound) return error(res, 404, 'Animal not found');
+    if (sighting.duplicate) return error(res, 409, 'That animal is already logged for this visit');
+
+    return res.status(201).json({
+      ...sighting,
+      points_awarded: toJsonInteger(sighting.points_awarded),
+    });
+  } catch (err) {
+    console.error('Failed to log sighting:', err.code || err.message);
+    return error(res, 503, 'Sightings unavailable');
+  }
+}
+
 router.post('/', requireAuth, createVisitHandler);
+router.post('/:id/sightings', requireAuth, createSightingHandler);
 
 module.exports = router;
-module.exports.handlers = { createVisitHandler };
+module.exports.handlers = { createVisitHandler, createSightingHandler };

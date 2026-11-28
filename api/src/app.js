@@ -5,6 +5,7 @@ const parksRouter = require('./routes/parks');
 const visitsRouter = require('./routes/visits');
 const authRouter = require('./routes/auth');
 const meRouter = require('./routes/me');
+const animalsRouter = require('./routes/animals');
 
 const app = express();
 // Number of proxies in front of the app (Render sits behind its own). Needed for per-visitor rate limits.
@@ -15,6 +16,8 @@ app.use(express.json());
 // Mount park catalogue endpoints at /parks.
 app.use('/parks', parksRouter);
 app.use('/visits', visitsRouter);
+// Animal list for the Wildlife screen.
+app.use('/animals', animalsRouter);
 // Sign up, sign in and the signed-in user.
 app.use('/auth', authRouter);
 app.use('/me', meRouter);
